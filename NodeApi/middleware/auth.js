@@ -1,6 +1,6 @@
 import { verifyToken, getTokenFromHeader } from '../utils/jwt.js';
 import { sendError } from '../utils/response.js';
-import db from '../config/database.js';
+import { dbB } from '../config/database.js';
 
 export const authenticate = async (req, res, next) => {
   try {
@@ -16,7 +16,7 @@ export const authenticate = async (req, res, next) => {
       return sendError(res, 'Invalid or expired token', 401);
     }
 
-    const [employees] = await db.query(
+    const [employees] = await dbB.query(
       'SELECT * FROM employees WHERE id = ? AND is_active = true',
       [payload.user_id]
     );
@@ -26,7 +26,6 @@ export const authenticate = async (req, res, next) => {
     }
 
     const employee = employees[0];
-    delete employee.password_hash;
     req.employee = employee;
     next();
   } catch (error) {

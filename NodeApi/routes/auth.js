@@ -2,7 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import { generateToken, verifyToken, getTokenFromHeader } from '../utils/jwt.js';
 import { sendSuccess, sendError } from '../utils/response.js';
-import db from '../config/database.js';
+import { dbA, dbB } from '../config/database.js';
 
 const router = express.Router();
 
@@ -14,23 +14,40 @@ router.post('/login', async (req, res) => {
       return sendError(res, 'Email and password are required', 400);
     }
 
-    const [employees] = await db.query(
-      'SELECT * FROM employees WHERE email = ? AND is_active = true',
+    const [users] = await dbA.query(
+      'SELECT * FROM users WHERE email = ?',
       [email]
     );
 
-    if (employees.length === 0) {
+    if (users.length === 0) {
       return sendError(res, 'Invalid credentials', 401);
     }
 
-    const employee = employees[0];
-    const isPasswordValid = await bcrypt.compare(password, employee.password_hash);
+    const user = users[0];
+    const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
       return sendError(res, 'Invalid credentials', 401);
     }
 
-    delete employee.password_hash;
+    const [employees] = await dbB.query(
+      'SELECT * FROM employees WHERE email = ? AND is_active = true',
+      [email]
+    );
+
+    let employee;
+    if (employees.length === 0) {
+      const [result] = await dbB.query(
+        'INSERT INTO employees (email, first_name, last_name, role, is_active) VALUES (?, ?, ?, ?, ?)',
+        [email, user.name || 'User', '', 'employee', true]
+      );
+      const [newEmployees] = await dbB.query('SELECT * FROM employees WHERE id = ?', [result.insertId]);
+      employee = newEmployees[0];
+    } else {
+      employee = employees[0];
+    }
+
+    delete user.password;
 
     const token = generateToken({
       user_id: employee.id,
@@ -53,32 +70,36 @@ router.post('/register', async (req, res) => {
       return sendError(res, 'Email, password, first name, and last name are required', 400);
     }
 
-    const [existing] = await db.query('SELECT id FROM employees WHERE email = ?', [email]);
-    if (existing.length > 0) {
+    const [existingUsers] = await dbA.query('SELECT id FROM users WHERE email = ?', [email]);
+    if (existingUsers.length > 0) {
       return sendError(res, 'Email already exists', 400);
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const [result] = await db.query(
-      `INSERT INTO employees (email, password_hash, first_name, last_name, role, employee_number, phone, hire_date, vacation_days_total)
+    await dbA.query(
+      'INSERT INTO users (email, password, name) VALUES (?, ?, ?)',
+      [email, passwordHash, `${first_name} ${last_name}`]
+    );
+
+    const [result] = await dbB.query(
+      `INSERT INTO employees (email, first_name, last_name, role, employee_number, phone, hire_date, vacation_days_total, is_active)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         email,
-        passwordHash,
         first_name,
         last_name,
         role || 'employee',
         employee_number || null,
         phone || null,
         hire_date || new Date().toISOString().split('T')[0],
-        vacation_days_total || 0
+        vacation_days_total || 0,
+        true
       ]
     );
 
-    const [employees] = await db.query('SELECT * FROM employees WHERE id = ?', [result.insertId]);
+    const [employees] = await dbB.query('SELECT * FROM employees WHERE id = ?', [result.insertId]);
     const employee = employees[0];
-    delete employee.password_hash;
 
     const token = generateToken({
       user_id: employee.id,
@@ -107,7 +128,7 @@ router.get('/me', async (req, res) => {
       return sendError(res, 'Invalid or expired token', 401);
     }
 
-    const [employees] = await db.query(
+    const [employees] = await dbB.query(
       'SELECT * FROM employees WHERE id = ? AND is_active = true',
       [payload.user_id]
     );
@@ -117,7 +138,6 @@ router.get('/me', async (req, res) => {
     }
 
     const employee = employees[0];
-    delete employee.password_hash;
 
     sendSuccess(res, employee);
   } catch (error) {

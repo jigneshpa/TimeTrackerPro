@@ -1,7 +1,7 @@
 import express from 'express';
 import { authenticate } from '../middleware/auth.js';
 import { sendSuccess, sendError } from '../utils/response.js';
-import db from '../config/database.js';
+import { dbB } from '../config/database.js';
 
 const router = express.Router();
 
@@ -10,7 +10,7 @@ router.post('/clock-in', authenticate, async (req, res) => {
     const { notes } = req.body;
     const employeeId = req.employee.id;
 
-    const [activeEntries] = await db.query(
+    const [activeEntries] = await dbB.query(
       'SELECT id FROM time_entries WHERE employee_id = ? AND clock_out IS NULL AND status = ?',
       [employeeId, 'active']
     );
@@ -21,12 +21,12 @@ router.post('/clock-in', authenticate, async (req, res) => {
 
     const clockIn = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-    const [result] = await db.query(
+    const [result] = await dbB.query(
       'INSERT INTO time_entries (employee_id, clock_in, notes, status) VALUES (?, ?, ?, ?)',
       [employeeId, clockIn, notes || null, 'active']
     );
 
-    const [entries] = await db.query('SELECT * FROM time_entries WHERE id = ?', [result.insertId]);
+    const [entries] = await dbB.query('SELECT * FROM time_entries WHERE id = ?', [result.insertId]);
 
     sendSuccess(res, entries[0], 'Clocked in successfully', 201);
   } catch (error) {
@@ -40,7 +40,7 @@ router.post('/clock-out', authenticate, async (req, res) => {
     const { break_duration } = req.body;
     const employeeId = req.employee.id;
 
-    const [activeEntries] = await db.query(
+    const [activeEntries] = await dbB.query(
       'SELECT * FROM time_entries WHERE employee_id = ? AND clock_out IS NULL AND status = ?',
       [employeeId, 'active']
     );
@@ -52,12 +52,12 @@ router.post('/clock-out', authenticate, async (req, res) => {
     const activeEntry = activeEntries[0];
     const clockOut = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-    await db.query(
+    await dbB.query(
       'UPDATE time_entries SET clock_out = ?, break_duration = ?, status = ? WHERE id = ?',
       [clockOut, break_duration || 0, 'completed', activeEntry.id]
     );
 
-    const [entries] = await db.query('SELECT * FROM time_entries WHERE id = ?', [activeEntry.id]);
+    const [entries] = await dbB.query('SELECT * FROM time_entries WHERE id = ?', [activeEntry.id]);
 
     sendSuccess(res, entries[0], 'Clocked out successfully');
   } catch (error) {
@@ -70,7 +70,7 @@ router.get('/active', authenticate, async (req, res) => {
   try {
     const employeeId = req.employee.id;
 
-    const [activeEntries] = await db.query(
+    const [activeEntries] = await dbB.query(
       'SELECT * FROM time_entries WHERE employee_id = ? AND clock_out IS NULL AND status = ?',
       [employeeId, 'active']
     );
@@ -89,7 +89,7 @@ router.get('/today', authenticate, async (req, res) => {
     const employeeId = req.employee.id;
     const today = new Date().toISOString().split('T')[0];
 
-    const [entries] = await db.query(
+    const [entries] = await dbB.query(
       `SELECT * FROM time_entries
        WHERE employee_id = ?
        AND DATE(clock_in) = ?
@@ -110,7 +110,7 @@ router.get('/entries', authenticate, async (req, res) => {
     const startDate = req.query.start_date || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const endDate = req.query.end_date || new Date().toISOString().split('T')[0];
 
-    const [entries] = await db.query(
+    const [entries] = await dbB.query(
       `SELECT * FROM time_entries
        WHERE employee_id = ?
        AND clock_in >= ?
@@ -135,7 +135,7 @@ router.put('/entries', authenticate, async (req, res) => {
       return sendError(res, 'Entry ID is required', 400);
     }
 
-    const [entries] = await db.query(
+    const [entries] = await dbB.query(
       'SELECT * FROM time_entries WHERE id = ? AND employee_id = ?',
       [id, employeeId]
     );
@@ -172,7 +172,7 @@ router.put('/entries', authenticate, async (req, res) => {
 
     if (updates.length > 0) {
       values.push(id);
-      await db.query(
+      await dbB.query(
         `UPDATE time_entries SET ${updates.join(', ')} WHERE id = ?`,
         values
       );

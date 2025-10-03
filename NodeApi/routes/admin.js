@@ -2,13 +2,13 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import { requireAdmin } from '../middleware/auth.js';
 import { sendSuccess, sendError } from '../utils/response.js';
-import db from '../config/database.js';
+import { dbA, dbB } from '../config/database.js';
 
 const router = express.Router();
 
 router.get('/employees', requireAdmin, async (req, res) => {
   try {
-    const [employees] = await db.query(
+    const [employees] = await dbB.query(
       `SELECT id, email, first_name, last_name, role, employee_number, phone, hire_date,
               is_active, vacation_days_total, vacation_days_used, created_at, updated_at
        FROM employees
@@ -34,7 +34,7 @@ router.get('/employee', requireAdmin, async (req, res) => {
       return sendError(res, 'Employee ID is required', 400);
     }
 
-    const [employees] = await db.query(
+    const [employees] = await dbB.query(
       `SELECT id, email, first_name, last_name, role, employee_number, phone, hire_date,
               is_active, vacation_days_total, vacation_days_used, created_at, updated_at
        FROM employees
@@ -64,19 +64,28 @@ router.post('/employees', requireAdmin, async (req, res) => {
       return sendError(res, 'Email, password, first name, and last name are required', 400);
     }
 
-    const [existing] = await db.query('SELECT id FROM employees WHERE email = ?', [email]);
-    if (existing.length > 0) {
+    const [existingUsers] = await dbA.query('SELECT id FROM users WHERE email = ?', [email]);
+    if (existingUsers.length > 0) {
+      return sendError(res, 'Email already exists in users database', 400);
+    }
+
+    const [existingEmployees] = await dbB.query('SELECT id FROM employees WHERE email = ?', [email]);
+    if (existingEmployees.length > 0) {
       return sendError(res, 'Email already exists', 400);
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const [result] = await db.query(
-      `INSERT INTO employees (email, password_hash, first_name, last_name, role, employee_number, phone, hire_date, vacation_days_total, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    await dbA.query(
+      'INSERT INTO users (email, password, name) VALUES (?, ?, ?)',
+      [email, passwordHash, `${first_name} ${last_name}`]
+    );
+
+    const [result] = await dbB.query(
+      `INSERT INTO employees (email, first_name, last_name, role, employee_number, phone, hire_date, vacation_days_total, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         email,
-        passwordHash,
         first_name,
         last_name,
         role || 'employee',
@@ -88,7 +97,7 @@ router.post('/employees', requireAdmin, async (req, res) => {
       ]
     );
 
-    const [employees] = await db.query(
+    const [employees] = await dbB.query(
       `SELECT id, email, first_name, last_name, role, employee_number, phone, hire_date,
               is_active, vacation_days_total, vacation_days_used, created_at, updated_at
        FROM employees
@@ -111,7 +120,7 @@ router.put('/employees', requireAdmin, async (req, res) => {
       return sendError(res, 'Employee ID is required', 400);
     }
 
-    const [employees] = await db.query('SELECT id FROM employees WHERE id = ?', [id]);
+    const [employees] = await dbB.query('SELECT id FROM employees WHERE id = ?', [id]);
     if (employees.length === 0) {
       return sendError(res, 'Employee not found', 404);
     }
@@ -120,7 +129,7 @@ router.put('/employees', requireAdmin, async (req, res) => {
     const values = [];
 
     if (email) {
-      const [existing] = await db.query('SELECT id FROM employees WHERE email = ? AND id != ?', [email, id]);
+      const [existing] = await dbB.query('SELECT id FROM employees WHERE email = ? AND id != ?', [email, id]);
       if (existing.length > 0) {
         return sendError(res, 'Email already exists', 400);
       }
@@ -169,13 +178,13 @@ router.put('/employees', requireAdmin, async (req, res) => {
 
     if (updates.length > 0) {
       values.push(id);
-      await db.query(
+      await dbB.query(
         `UPDATE employees SET ${updates.join(', ')} WHERE id = ?`,
         values
       );
     }
 
-    const [updatedEmployees] = await db.query(
+    const [updatedEmployees] = await dbB.query(
       `SELECT id, email, first_name, last_name, role, employee_number, phone, hire_date,
               is_active, vacation_days_total, vacation_days_used, created_at, updated_at
        FROM employees
@@ -198,12 +207,12 @@ router.delete('/employees', requireAdmin, async (req, res) => {
       return sendError(res, 'Employee ID is required', 400);
     }
 
-    const [employees] = await db.query('SELECT id FROM employees WHERE id = ?', [id]);
+    const [employees] = await dbB.query('SELECT id FROM employees WHERE id = ?', [id]);
     if (employees.length === 0) {
       return sendError(res, 'Employee not found', 404);
     }
 
-    await db.query('DELETE FROM employees WHERE id = ?', [id]);
+    await dbB.query('DELETE FROM employees WHERE id = ?', [id]);
 
     sendSuccess(res, null, 'Employee deleted successfully');
   } catch (error) {
@@ -228,10 +237,10 @@ router.get('/time-entries', requireAdmin, async (req, res) => {
 
     query += ' ORDER BY clock_in DESC';
 
-    const [entries] = await db.query(query, params);
+    const [entries] = await dbB.query(query, params);
 
     for (const entry of entries) {
-      const [employees] = await db.query(
+      const [employees] = await dbB.query(
         'SELECT first_name, last_name, employee_number FROM employees WHERE id = ?',
         [entry.employee_id]
       );
@@ -262,10 +271,10 @@ router.get('/vacation-requests', requireAdmin, async (req, res) => {
 
     query += ' ORDER BY created_at DESC';
 
-    const [requests] = await db.query(query, params);
+    const [requests] = await dbB.query(query, params);
 
     for (const request of requests) {
-      const [employees] = await db.query(
+      const [employees] = await dbB.query(
         'SELECT first_name, last_name, employee_number FROM employees WHERE id = ?',
         [request.employee_id]
       );
@@ -275,7 +284,7 @@ router.get('/vacation-requests', requireAdmin, async (req, res) => {
       }
 
       if (request.approved_by) {
-        const [approvers] = await db.query(
+        const [approvers] = await dbB.query(
           'SELECT first_name, last_name FROM employees WHERE id = ?',
           [request.approved_by]
         );
@@ -301,7 +310,7 @@ router.post('/vacation-requests/approve', requireAdmin, async (req, res) => {
       return sendError(res, 'Request ID is required', 400);
     }
 
-    const [requests] = await db.query('SELECT * FROM vacation_requests WHERE id = ?', [id]);
+    const [requests] = await dbB.query('SELECT * FROM vacation_requests WHERE id = ?', [id]);
 
     if (requests.length === 0) {
       return sendError(res, 'Request not found', 404);
@@ -313,17 +322,17 @@ router.post('/vacation-requests/approve', requireAdmin, async (req, res) => {
 
     const approvedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-    await db.query(
+    await dbB.query(
       'UPDATE vacation_requests SET status = ?, approved_by = ?, approved_at = ? WHERE id = ?',
       ['approved', adminId, approvedAt, id]
     );
 
-    await db.query(
+    await dbB.query(
       'UPDATE employees SET vacation_days_used = vacation_days_used + ? WHERE id = ?',
       [requests[0].days_requested, requests[0].employee_id]
     );
 
-    const [updatedRequests] = await db.query('SELECT * FROM vacation_requests WHERE id = ?', [id]);
+    const [updatedRequests] = await dbB.query('SELECT * FROM vacation_requests WHERE id = ?', [id]);
 
     sendSuccess(res, updatedRequests[0], 'Vacation request approved');
   } catch (error) {
@@ -341,7 +350,7 @@ router.post('/vacation-requests/deny', requireAdmin, async (req, res) => {
       return sendError(res, 'Request ID is required', 400);
     }
 
-    const [requests] = await db.query('SELECT * FROM vacation_requests WHERE id = ?', [id]);
+    const [requests] = await dbB.query('SELECT * FROM vacation_requests WHERE id = ?', [id]);
 
     if (requests.length === 0) {
       return sendError(res, 'Request not found', 404);
@@ -353,12 +362,12 @@ router.post('/vacation-requests/deny', requireAdmin, async (req, res) => {
 
     const approvedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-    await db.query(
+    await dbB.query(
       'UPDATE vacation_requests SET status = ?, approved_by = ?, approved_at = ?, denial_reason = ? WHERE id = ?',
       ['denied', adminId, approvedAt, denial_reason || null, id]
     );
 
-    const [updatedRequests] = await db.query('SELECT * FROM vacation_requests WHERE id = ?', [id]);
+    const [updatedRequests] = await dbB.query('SELECT * FROM vacation_requests WHERE id = ?', [id]);
 
     sendSuccess(res, updatedRequests[0], 'Vacation request denied');
   } catch (error) {
@@ -375,7 +384,7 @@ router.get('/work-schedules', requireAdmin, async (req, res) => {
       return sendError(res, 'Employee ID is required', 400);
     }
 
-    const [schedules] = await db.query(
+    const [schedules] = await dbB.query(
       'SELECT * FROM work_schedules WHERE employee_id = ? ORDER BY day_of_week ASC',
       [employeeId]
     );
@@ -395,7 +404,7 @@ router.post('/work-schedules', requireAdmin, async (req, res) => {
       return sendError(res, 'Employee ID, day of week, start time, and end time are required', 400);
     }
 
-    const [existing] = await db.query(
+    const [existing] = await dbB.query(
       'SELECT id FROM work_schedules WHERE employee_id = ? AND day_of_week = ?',
       [employee_id, day_of_week]
     );
@@ -403,20 +412,20 @@ router.post('/work-schedules', requireAdmin, async (req, res) => {
     let scheduleId;
 
     if (existing.length > 0) {
-      await db.query(
+      await dbB.query(
         'UPDATE work_schedules SET start_time = ?, end_time = ?, is_working_day = ? WHERE employee_id = ? AND day_of_week = ?',
         [start_time, end_time, is_working_day !== undefined ? is_working_day : true, employee_id, day_of_week]
       );
       scheduleId = existing[0].id;
     } else {
-      const [result] = await db.query(
+      const [result] = await dbB.query(
         'INSERT INTO work_schedules (employee_id, day_of_week, start_time, end_time, is_working_day) VALUES (?, ?, ?, ?, ?)',
         [employee_id, day_of_week, start_time, end_time, is_working_day !== undefined ? is_working_day : true]
       );
       scheduleId = result.insertId;
     }
 
-    const [schedules] = await db.query('SELECT * FROM work_schedules WHERE id = ?', [scheduleId]);
+    const [schedules] = await dbB.query('SELECT * FROM work_schedules WHERE id = ?', [scheduleId]);
 
     sendSuccess(res, schedules[0], 'Work schedule saved successfully');
   } catch (error) {
