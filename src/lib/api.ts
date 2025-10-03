@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost/MedooApi';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost/MedooApi/api.php';
 
 interface ApiResponse<T = any> {
   success: boolean;
