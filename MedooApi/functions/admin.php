@@ -75,17 +75,28 @@ function handle_create_employee() {
         }
     }
 
-    $db = get_db_connection();
-    $existing = $db->get('employees', 'id', ['email' => $data['email']]);
-    if ($existing) {
+    $dbA = get_db_connection_a();
+    $existingUser = $dbA->get('users', 'id', ['email' => $data['email']]);
+    if ($existingUser) {
+        send_error_response('Email already exists in users database', 400);
+    }
+
+    $dbB = get_db_connection_b();
+    $existingEmployee = $dbB->get('employees', 'id', ['email' => $data['email']]);
+    if ($existingEmployee) {
         send_error_response('Email already exists', 400);
     }
 
     $passwordHash = password_hash($data['password'], PASSWORD_BCRYPT);
 
+    $dbA->insert('users', [
+        'email' => $data['email'],
+        'password' => $passwordHash,
+        'name' => $data['first_name'] . ' ' . $data['last_name']
+    ]);
+
     $insertData = [
         'email' => $data['email'],
-        'password_hash' => $passwordHash,
         'first_name' => $data['first_name'],
         'last_name' => $data['last_name'],
         'role' => $data['role'] ?? 'employee',
@@ -96,10 +107,10 @@ function handle_create_employee() {
         'is_active' => $data['is_active'] ?? true
     ];
 
-    $db->insert('employees', $insertData);
-    $employeeId = $db->id();
+    $dbB->insert('employees', $insertData);
+    $employeeId = $dbB->id();
 
-    $employee = $db->get('employees', [
+    $employee = $dbB->get('employees', [
         'id',
         'email',
         'first_name',
