@@ -4,7 +4,7 @@ function handle_get_vacation_balance() {
     $employee = authenticate_user();
 
     $db = get_db_connection();
-    $balance = $db->get('employees', [
+    $balance = $db->get('employees_timetrackpro', [
         'vacation_days_total',
         'vacation_days_used'
     ], [
@@ -20,14 +20,14 @@ function handle_get_vacation_requests() {
     $employee = authenticate_user();
 
     $db = get_db_connection();
-    $requests = $db->select('vacation_requests', '*', [
+    $requests = $db->select('vacation_requests_timetrackpro', '*', [
         'employee_id' => $employee['id'],
         'ORDER' => ['created_at' => 'DESC']
     ]);
 
     foreach ($requests as &$request) {
         if ($request['approved_by']) {
-            $approver = $db->get('employees', [
+            $approver = $db->get('employees_timetrackpro', [
                 'first_name',
                 'last_name'
             ], [
@@ -52,7 +52,7 @@ function handle_create_vacation_request() {
     }
 
     $db = get_db_connection();
-    $balance = $db->get('employees', [
+    $balance = $db->get('employees_timetrackpro', [
         'vacation_days_total',
         'vacation_days_used'
     ], [
@@ -75,10 +75,10 @@ function handle_create_vacation_request() {
         'status' => 'pending'
     ];
 
-    $db->insert('vacation_requests', $insertData);
+    $db->insert('vacation_requests_timetrackpro', $insertData);
     $requestId = $db->id();
 
-    $request = $db->get('vacation_requests', '*', ['id' => $requestId]);
+    $request = $db->get('vacation_requests_timetrackpro', '*', ['id' => $requestId]);
 
     send_success_response($request, 'Vacation request created successfully', 201);
 }
@@ -92,7 +92,7 @@ function handle_update_vacation_request() {
     }
 
     $db = get_db_connection();
-    $request = $db->get('vacation_requests', '*', [
+    $request = $db->get('vacation_requests_timetrackpro', '*', [
         'id' => $data['id'],
         'employee_id' => $employee['id']
     ]);
@@ -113,10 +113,10 @@ function handle_update_vacation_request() {
     if (isset($data['notes'])) $updateData['notes'] = $data['notes'];
 
     if (!empty($updateData)) {
-        $db->update('vacation_requests', $updateData, ['id' => $data['id']]);
+        $db->update('vacation_requests_timetrackpro', $updateData, ['id' => $data['id']]);
     }
 
-    $updatedRequest = $db->get('vacation_requests', '*', ['id' => $data['id']]);
+    $updatedRequest = $db->get('vacation_requests_timetrackpro', '*', ['id' => $data['id']]);
 
     send_success_response($updatedRequest, 'Request updated successfully');
 }
@@ -130,7 +130,7 @@ function handle_cancel_vacation_request() {
     }
 
     $db = get_db_connection();
-    $request = $db->get('vacation_requests', '*', [
+    $request = $db->get('vacation_requests_timetrackpro', '*', [
         'id' => $data['id'],
         'employee_id' => $employee['id']
     ]);
@@ -143,13 +143,13 @@ function handle_cancel_vacation_request() {
         send_error_response('Request already cancelled', 400);
     }
 
-    $db->update('vacation_requests', [
+    $db->update('vacation_requests_timetrackpro', [
         'status' => 'cancelled'
     ], [
         'id' => $data['id']
     ]);
 
-    $updatedRequest = $db->get('vacation_requests', '*', ['id' => $data['id']]);
+    $updatedRequest = $db->get('vacation_requests_timetrackpro', '*', ['id' => $data['id']]);
 
     send_success_response($updatedRequest, 'Request cancelled successfully');
 }

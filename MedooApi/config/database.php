@@ -3,7 +3,7 @@
 return [
     'type' => 'mysql',
     'host' => getenv('DB_HOST') ?: 'localhost',
-    'database' => getenv('DB_NAME') ?: 'time_tracking',
+    'database' => getenv('DB_NAME') ?: 'rc_kabba',
     'username' => getenv('DB_USER') ?: 'root',
     'password' => getenv('DB_PASSWORD') ?: '',
     'charset' => 'utf8mb4',

@@ -4,7 +4,7 @@ function handle_get_employees() {
     require_admin();
 
     $db = get_db_connection();
-    $employees = $db->select('employees', [
+    $employees = $db->select('employees_timetrackpro', [
         'id',
         'email',
         'first_name',
@@ -37,7 +37,7 @@ function handle_get_employee() {
     }
 
     $db = get_db_connection();
-    $employee = $db->get('employees', [
+    $employee = $db->get('employees_timetrackpro', [
         'id',
         'email',
         'first_name',
@@ -75,28 +75,17 @@ function handle_create_employee() {
         }
     }
 
-    $dbA = get_db_connection_a();
-    $existingUser = $dbA->get('users', 'id', ['email' => $data['email']]);
-    if ($existingUser) {
-        send_error_response('Email already exists in users database', 400);
-    }
-
-    $dbB = get_db_connection_b();
-    $existingEmployee = $dbB->get('employees', 'id', ['email' => $data['email']]);
-    if ($existingEmployee) {
+    $db = get_db_connection();
+    $existing = $db->get('employees_timetrackpro', 'id', ['email' => $data['email']]);
+    if ($existing) {
         send_error_response('Email already exists', 400);
     }
 
     $passwordHash = password_hash($data['password'], PASSWORD_BCRYPT);
 
-    $dbA->insert('users', [
-        'email' => $data['email'],
-        'password' => $passwordHash,
-        'name' => $data['first_name'] . ' ' . $data['last_name']
-    ]);
-
     $insertData = [
         'email' => $data['email'],
+        'password_hash' => $passwordHash,
         'first_name' => $data['first_name'],
         'last_name' => $data['last_name'],
         'role' => $data['role'] ?? 'employee',
@@ -107,10 +96,10 @@ function handle_create_employee() {
         'is_active' => $data['is_active'] ?? true
     ];
 
-    $dbB->insert('employees', $insertData);
-    $employeeId = $dbB->id();
+    $db->insert('employees_timetrackpro', $insertData);
+    $employeeId = $db->id();
 
-    $employee = $dbB->get('employees', [
+    $employee = $db->get('employees_timetrackpro', [
         'id',
         'email',
         'first_name',
@@ -138,14 +127,14 @@ function handle_update_employee() {
     }
 
     $db = get_db_connection();
-    $employee = $db->get('employees', 'id', ['id' => $data['id']]);
+    $employee = $db->get('employees_timetrackpro', 'id', ['id' => $data['id']]);
     if (!$employee) {
         send_error_response('Employee not found', 404);
     }
 
     $updateData = [];
     if (isset($data['email'])) {
-        $existing = $db->get('employees', 'id', [
+        $existing = $db->get('employees_timetrackpro', 'id', [
             'email' => $data['email'],
             'id[!]' => $data['id']
         ]);
@@ -169,10 +158,10 @@ function handle_update_employee() {
     if (isset($data['is_active'])) $updateData['is_active'] = $data['is_active'];
 
     if (!empty($updateData)) {
-        $db->update('employees', $updateData, ['id' => $data['id']]);
+        $db->update('employees_timetrackpro', $updateData, ['id' => $data['id']]);
     }
 
-    $updatedEmployee = $db->get('employees', [
+    $updatedEmployee = $db->get('employees_timetrackpro', [
         'id',
         'email',
         'first_name',
@@ -200,12 +189,12 @@ function handle_delete_employee() {
     }
 
     $db = get_db_connection();
-    $employee = $db->get('employees', 'id', ['id' => $data['id']]);
+    $employee = $db->get('employees_timetrackpro', 'id', ['id' => $data['id']]);
     if (!$employee) {
         send_error_response('Employee not found', 404);
     }
 
-    $db->delete('employees', ['id' => $data['id']]);
+    $db->delete('employees_timetrackpro', ['id' => $data['id']]);
 
     send_success_response(null, 'Employee deleted successfully');
 }
@@ -228,10 +217,10 @@ function handle_get_all_time_entries() {
     }
 
     $db = get_db_connection();
-    $entries = $db->select('time_entries', '*', $where);
+    $entries = $db->select('time_entries_timetrackpro', '*', $where);
 
     foreach ($entries as &$entry) {
-        $employee = $db->get('employees', [
+        $employee = $db->get('employees_timetrackpro', [
             'first_name',
             'last_name',
             'employee_number'
@@ -257,10 +246,10 @@ function handle_get_all_vacation_requests() {
     }
 
     $db = get_db_connection();
-    $requests = $db->select('vacation_requests', '*', $where);
+    $requests = $db->select('vacation_requests_timetrackpro', '*', $where);
 
     foreach ($requests as &$request) {
-        $employee = $db->get('employees', [
+        $employee = $db->get('employees_timetrackpro', [
             'first_name',
             'last_name',
             'employee_number'
@@ -271,7 +260,7 @@ function handle_get_all_vacation_requests() {
         $request['employee_number'] = $employee['employee_number'];
 
         if ($request['approved_by']) {
-            $approver = $db->get('employees', [
+            $approver = $db->get('employees_timetrackpro', [
                 'first_name',
                 'last_name'
             ], [
@@ -293,7 +282,7 @@ function handle_approve_vacation() {
     }
 
     $db = get_db_connection();
-    $request = $db->get('vacation_requests', '*', ['id' => $data['id']]);
+    $request = $db->get('vacation_requests_timetrackpro', '*', ['id' => $data['id']]);
 
     if (!$request) {
         send_error_response('Request not found', 404);
@@ -303,7 +292,7 @@ function handle_approve_vacation() {
         send_error_response('Can only approve pending requests', 400);
     }
 
-    $db->update('vacation_requests', [
+    $db->update('vacation_requests_timetrackpro', [
         'status' => 'approved',
         'approved_by' => $admin['id'],
         'approved_at' => date('Y-m-d H:i:s')
@@ -311,13 +300,13 @@ function handle_approve_vacation() {
         'id' => $data['id']
     ]);
 
-    $db->update('employees', [
+    $db->update('employees_timetrackpro', [
         'vacation_days_used[+]' => $request['days_requested']
     ], [
         'id' => $request['employee_id']
     ]);
 
-    $updatedRequest = $db->get('vacation_requests', '*', ['id' => $data['id']]);
+    $updatedRequest = $db->get('vacation_requests_timetrackpro', '*', ['id' => $data['id']]);
 
     send_success_response($updatedRequest, 'Vacation request approved');
 }
@@ -331,7 +320,7 @@ function handle_deny_vacation() {
     }
 
     $db = get_db_connection();
-    $request = $db->get('vacation_requests', '*', ['id' => $data['id']]);
+    $request = $db->get('vacation_requests_timetrackpro', '*', ['id' => $data['id']]);
 
     if (!$request) {
         send_error_response('Request not found', 404);
@@ -341,7 +330,7 @@ function handle_deny_vacation() {
         send_error_response('Can only deny pending requests', 400);
     }
 
-    $db->update('vacation_requests', [
+    $db->update('vacation_requests_timetrackpro', [
         'status' => 'denied',
         'approved_by' => $admin['id'],
         'approved_at' => date('Y-m-d H:i:s'),
@@ -350,7 +339,7 @@ function handle_deny_vacation() {
         'id' => $data['id']
     ]);
 
-    $updatedRequest = $db->get('vacation_requests', '*', ['id' => $data['id']]);
+    $updatedRequest = $db->get('vacation_requests_timetrackpro', '*', ['id' => $data['id']]);
 
     send_success_response($updatedRequest, 'Vacation request denied');
 }
@@ -365,7 +354,7 @@ function handle_get_work_schedules() {
     }
 
     $db = get_db_connection();
-    $schedules = $db->select('work_schedules', '*', [
+    $schedules = $db->select('work_schedules_timetrackpro', '*', [
         'employee_id' => $employeeId,
         'ORDER' => ['day_of_week' => 'ASC']
     ]);
@@ -385,7 +374,7 @@ function handle_save_work_schedule() {
     }
 
     $db = get_db_connection();
-    $existing = $db->get('work_schedules', 'id', [
+    $existing = $db->get('work_schedules_timetrackpro', 'id', [
         'employee_id' => $data['employee_id'],
         'day_of_week' => $data['day_of_week']
     ]);
@@ -399,17 +388,17 @@ function handle_save_work_schedule() {
     ];
 
     if ($existing) {
-        $db->update('work_schedules', $scheduleData, [
+        $db->update('work_schedules_timetrackpro', $scheduleData, [
             'employee_id' => $data['employee_id'],
             'day_of_week' => $data['day_of_week']
         ]);
         $scheduleId = $existing;
     } else {
-        $db->insert('work_schedules', $scheduleData);
+        $db->insert('work_schedules_timetrackpro', $scheduleData);
         $scheduleId = $db->id();
     }
 
-    $schedule = $db->get('work_schedules', '*', ['id' => $scheduleId]);
+    $schedule = $db->get('work_schedules_timetrackpro', '*', ['id' => $scheduleId]);
 
     send_success_response($schedule, 'Work schedule saved successfully');
 }

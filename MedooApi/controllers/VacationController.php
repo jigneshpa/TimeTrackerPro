@@ -19,7 +19,7 @@ class VacationController
     {
         $employee = Auth::authenticate();
 
-        $balance = $this->db->get('employees', [
+        $balance = $this->db->get('employees_timetrackpro', [
             'vacation_days_total',
             'vacation_days_used'
         ], [
@@ -35,14 +35,14 @@ class VacationController
     {
         $employee = Auth::authenticate();
 
-        $requests = $this->db->select('vacation_requests', '*', [
+        $requests = $this->db->select('vacation_requests_timetrackpro', '*', [
             'employee_id' => $employee['id'],
             'ORDER' => ['created_at' => 'DESC']
         ]);
 
         foreach ($requests as &$request) {
             if ($request['approved_by']) {
-                $approver = $this->db->get('employees', [
+                $approver = $this->db->get('employees_timetrackpro', [
                     'first_name',
                     'last_name'
                 ], [
@@ -67,7 +67,7 @@ class VacationController
             }
         }
 
-        $balance = $this->db->get('employees', [
+        $balance = $this->db->get('employees_timetrackpro', [
             'vacation_days_total',
             'vacation_days_used'
         ], [
@@ -90,10 +90,10 @@ class VacationController
             'status' => 'pending'
         ];
 
-        $this->db->insert('vacation_requests', $insertData);
+        $this->db->insert('vacation_requests_timetrackpro', $insertData);
         $requestId = $this->db->id();
 
-        $request = $this->db->get('vacation_requests', '*', ['id' => $requestId]);
+        $request = $this->db->get('vacation_requests_timetrackpro', '*', ['id' => $requestId]);
 
         Response::success($request, 'Vacation request created successfully', 201);
     }
@@ -107,7 +107,7 @@ class VacationController
             Response::error('Request ID is required', 400);
         }
 
-        $request = $this->db->get('vacation_requests', '*', [
+        $request = $this->db->get('vacation_requests_timetrackpro', '*', [
             'id' => $data['id'],
             'employee_id' => $employee['id']
         ]);
@@ -128,10 +128,10 @@ class VacationController
         if (isset($data['notes'])) $updateData['notes'] = $data['notes'];
 
         if (!empty($updateData)) {
-            $this->db->update('vacation_requests', $updateData, ['id' => $data['id']]);
+            $this->db->update('vacation_requests_timetrackpro', $updateData, ['id' => $data['id']]);
         }
 
-        $updatedRequest = $this->db->get('vacation_requests', '*', ['id' => $data['id']]);
+        $updatedRequest = $this->db->get('vacation_requests_timetrackpro', '*', ['id' => $data['id']]);
 
         Response::success($updatedRequest, 'Request updated successfully');
     }
@@ -145,7 +145,7 @@ class VacationController
             Response::error('Request ID is required', 400);
         }
 
-        $request = $this->db->get('vacation_requests', '*', [
+        $request = $this->db->get('vacation_requests_timetrackpro', '*', [
             'id' => $data['id'],
             'employee_id' => $employee['id']
         ]);
@@ -158,13 +158,13 @@ class VacationController
             Response::error('Request already cancelled', 400);
         }
 
-        $this->db->update('vacation_requests', [
+        $this->db->update('vacation_requests_timetrackpro', [
             'status' => 'cancelled'
         ], [
             'id' => $data['id']
         ]);
 
-        $updatedRequest = $this->db->get('vacation_requests', '*', ['id' => $data['id']]);
+        $updatedRequest = $this->db->get('vacation_requests_timetrackpro', '*', ['id' => $data['id']]);
 
         Response::success($updatedRequest, 'Request cancelled successfully');
     }

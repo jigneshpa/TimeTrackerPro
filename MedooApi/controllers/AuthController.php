@@ -23,7 +23,7 @@ class AuthController
             Response::error('Email and password are required', 400);
         }
 
-        $employee = $this->db->get('employees', '*', [
+        $employee = $this->db->get('employees_timetrackpro', '*', [
             'email' => $data['email'],
             'is_active' => true
         ]);
@@ -57,7 +57,7 @@ class AuthController
             }
         }
 
-        $existing = $this->db->get('employees', 'id', ['email' => $data['email']]);
+        $existing = $this->db->get('employees_timetrackpro', 'id', ['email' => $data['email']]);
         if ($existing) {
             Response::error('Email already exists', 400);
         }
@@ -76,10 +76,10 @@ class AuthController
             'vacation_days_total' => $data['vacation_days_total'] ?? 0,
         ];
 
-        $this->db->insert('employees', $insertData);
+        $this->db->insert('employees_timetrackpro', $insertData);
         $employeeId = $this->db->id();
 
-        $employee = $this->db->get('employees', '*', ['id' => $employeeId]);
+        $employee = $this->db->get('employees_timetrackpro', '*', ['id' => $employeeId]);
         unset($employee['password_hash']);
 
         $token = JWT::encode([
@@ -108,7 +108,7 @@ class AuthController
             Response::error('Invalid or expired token', 401);
         }
 
-        $employee = $this->db->get('employees', '*', [
+        $employee = $this->db->get('employees_timetrackpro', '*', [
             'id' => $payload['user_id'],
             'is_active' => true
         ]);

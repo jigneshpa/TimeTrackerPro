@@ -20,7 +20,7 @@ class TimeClockController
         $employee = Auth::authenticate();
         $data = json_decode(file_get_contents('php://input'), true);
 
-        $activeEntry = $this->db->get('time_entries', 'id', [
+        $activeEntry = $this->db->get('time_entries_timetrackpro', 'id', [
             'employee_id' => $employee['id'],
             'clock_out' => null,
             'status' => 'active'
@@ -37,10 +37,10 @@ class TimeClockController
             'status' => 'active'
         ];
 
-        $this->db->insert('time_entries', $insertData);
+        $this->db->insert('time_entries_timetrackpro', $insertData);
         $entryId = $this->db->id();
 
-        $entry = $this->db->get('time_entries', '*', ['id' => $entryId]);
+        $entry = $this->db->get('time_entries_timetrackpro', '*', ['id' => $entryId]);
 
         Response::success($entry, 'Clocked in successfully', 201);
     }
@@ -50,7 +50,7 @@ class TimeClockController
         $employee = Auth::authenticate();
         $data = json_decode(file_get_contents('php://input'), true);
 
-        $activeEntry = $this->db->get('time_entries', '*', [
+        $activeEntry = $this->db->get('time_entries_timetrackpro', '*', [
             'employee_id' => $employee['id'],
             'clock_out' => null,
             'status' => 'active'
@@ -60,7 +60,7 @@ class TimeClockController
             Response::error('No active time entry found', 404);
         }
 
-        $this->db->update('time_entries', [
+        $this->db->update('time_entries_timetrackpro', [
             'clock_out' => date('Y-m-d H:i:s'),
             'break_duration' => $data['break_duration'] ?? 0,
             'status' => 'completed'
@@ -68,7 +68,7 @@ class TimeClockController
             'id' => $activeEntry['id']
         ]);
 
-        $entry = $this->db->get('time_entries', '*', ['id' => $activeEntry['id']]);
+        $entry = $this->db->get('time_entries_timetrackpro', '*', ['id' => $activeEntry['id']]);
 
         Response::success($entry, 'Clocked out successfully');
     }
@@ -77,7 +77,7 @@ class TimeClockController
     {
         $employee = Auth::authenticate();
 
-        $activeEntry = $this->db->get('time_entries', '*', [
+        $activeEntry = $this->db->get('time_entries_timetrackpro', '*', [
             'employee_id' => $employee['id'],
             'clock_out' => null,
             'status' => 'active'
@@ -90,7 +90,7 @@ class TimeClockController
     {
         $employee = Auth::authenticate();
 
-        $entries = $this->db->select('time_entries', '*', [
+        $entries = $this->db->select('time_entries_timetrackpro', '*', [
             'employee_id' => $employee['id'],
             'clock_in[>=]' => date('Y-m-d 00:00:00'),
             'clock_in[<=]' => date('Y-m-d 23:59:59'),
@@ -107,7 +107,7 @@ class TimeClockController
         $startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
         $endDate = $_GET['end_date'] ?? date('Y-m-d');
 
-        $entries = $this->db->select('time_entries', '*', [
+        $entries = $this->db->select('time_entries_timetrackpro', '*', [
             'employee_id' => $employee['id'],
             'clock_in[>=]' => $startDate . ' 00:00:00',
             'clock_in[<=]' => $endDate . ' 23:59:59',
@@ -126,7 +126,7 @@ class TimeClockController
             Response::error('Entry ID is required', 400);
         }
 
-        $entry = $this->db->get('time_entries', '*', [
+        $entry = $this->db->get('time_entries_timetrackpro', '*', [
             'id' => $data['id'],
             'employee_id' => $employee['id']
         ]);
@@ -146,10 +146,10 @@ class TimeClockController
         }
 
         if (!empty($updateData)) {
-            $this->db->update('time_entries', $updateData, ['id' => $data['id']]);
+            $this->db->update('time_entries_timetrackpro', $updateData, ['id' => $data['id']]);
         }
 
-        $updatedEntry = $this->db->get('time_entries', '*', ['id' => $data['id']]);
+        $updatedEntry = $this->db->get('time_entries_timetrackpro', '*', ['id' => $data['id']]);
 
         Response::success($updatedEntry, 'Entry updated successfully');
     }

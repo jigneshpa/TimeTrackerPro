@@ -13,8 +13,8 @@ function authenticate_user() {
         send_error_response('Invalid or expired token', 401);
     }
 
-    $dbB = get_db_connection_b();
-    $employee = $dbB->get('employees', '*', [
+    $db = get_db_connection();
+    $employee = $db->get('employees_timetrackpro', '*', [
         'id' => $payload['user_id'],
         'is_active' => true
     ]);
@@ -43,31 +43,17 @@ function handle_login() {
         send_error_response('Email and password are required', 400);
     }
 
-    $dbA = get_db_connection_a();
-    $user = $dbA->get('users', '*', ['email' => $data['email']]);
-
-    if (!$user || !password_verify($data['password'], $user['password'])) {
-        send_error_response('Invalid credentials', 401);
-    }
-
-    $dbB = get_db_connection_b();
-    $employee = $dbB->get('employees', '*', [
+    $db = get_db_connection();
+    $employee = $db->get('employees_timetrackpro', '*', [
         'email' => $data['email'],
         'is_active' => true
     ]);
 
-    if (!$employee) {
-        $insertData = [
-            'email' => $data['email'],
-            'first_name' => $user['name'] ?? 'User',
-            'last_name' => '',
-            'role' => 'employee',
-            'is_active' => true
-        ];
-        $dbB->insert('employees', $insertData);
-        $employeeId = $dbB->id();
-        $employee = $dbB->get('employees', '*', ['id' => $employeeId]);
+    if (!$employee || !password_verify($data['password'], $employee['password_hash'])) {
+        send_error_response('Invalid credentials', 401);
     }
+
+    unset($employee['password_hash']);
 
     $token = jwt_encode([
         'user_id' => $employee['id'],
@@ -91,23 +77,17 @@ function handle_register() {
         }
     }
 
-    $dbA = get_db_connection_a();
-    $existingUser = $dbA->get('users', 'id', ['email' => $data['email']]);
-    if ($existingUser) {
+    $db = get_db_connection();
+    $existing = $db->get('employees_timetrackpro', 'id', ['email' => $data['email']]);
+    if ($existing) {
         send_error_response('Email already exists', 400);
     }
 
     $passwordHash = password_hash($data['password'], PASSWORD_BCRYPT);
 
-    $dbA->insert('users', [
-        'email' => $data['email'],
-        'password' => $passwordHash,
-        'name' => $data['first_name'] . ' ' . $data['last_name']
-    ]);
-
-    $dbB = get_db_connection_b();
     $insertData = [
         'email' => $data['email'],
+        'password_hash' => $passwordHash,
         'first_name' => $data['first_name'],
         'last_name' => $data['last_name'],
         'role' => $data['role'] ?? 'employee',
@@ -118,10 +98,11 @@ function handle_register() {
         'is_active' => true
     ];
 
-    $dbB->insert('employees', $insertData);
-    $employeeId = $dbB->id();
+    $db->insert('employees_timetrackpro', $insertData);
+    $employeeId = $db->id();
 
-    $employee = $dbB->get('employees', '*', ['id' => $employeeId]);
+    $employee = $db->get('employees_timetrackpro', '*', ['id' => $employeeId]);
+    unset($employee['password_hash']);
 
     $token = jwt_encode([
         'user_id' => $employee['id'],
@@ -148,8 +129,8 @@ function handle_me() {
         send_error_response('Invalid or expired token', 401);
     }
 
-    $dbB = get_db_connection_b();
-    $employee = $dbB->get('employees', '*', [
+    $db = get_db_connection();
+    $employee = $db->get('employees_timetrackpro', '*', [
         'id' => $payload['user_id'],
         'is_active' => true
     ]);

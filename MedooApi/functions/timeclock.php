@@ -5,7 +5,7 @@ function handle_clock_in() {
     $data = json_decode(file_get_contents('php://input'), true);
 
     $db = get_db_connection();
-    $activeEntry = $db->get('time_entries', 'id', [
+    $activeEntry = $db->get('time_entries_timetrackpro', 'id', [
         'employee_id' => $employee['id'],
         'clock_out' => null,
         'status' => 'active'
@@ -22,10 +22,10 @@ function handle_clock_in() {
         'status' => 'active'
     ];
 
-    $db->insert('time_entries', $insertData);
+    $db->insert('time_entries_timetrackpro', $insertData);
     $entryId = $db->id();
 
-    $entry = $db->get('time_entries', '*', ['id' => $entryId]);
+    $entry = $db->get('time_entries_timetrackpro', '*', ['id' => $entryId]);
 
     send_success_response($entry, 'Clocked in successfully', 201);
 }
@@ -35,7 +35,7 @@ function handle_clock_out() {
     $data = json_decode(file_get_contents('php://input'), true);
 
     $db = get_db_connection();
-    $activeEntry = $db->get('time_entries', '*', [
+    $activeEntry = $db->get('time_entries_timetrackpro', '*', [
         'employee_id' => $employee['id'],
         'clock_out' => null,
         'status' => 'active'
@@ -45,7 +45,7 @@ function handle_clock_out() {
         send_error_response('No active time entry found', 404);
     }
 
-    $db->update('time_entries', [
+    $db->update('time_entries_timetrackpro', [
         'clock_out' => date('Y-m-d H:i:s'),
         'break_duration' => $data['break_duration'] ?? 0,
         'status' => 'completed'
@@ -53,7 +53,7 @@ function handle_clock_out() {
         'id' => $activeEntry['id']
     ]);
 
-    $entry = $db->get('time_entries', '*', ['id' => $activeEntry['id']]);
+    $entry = $db->get('time_entries_timetrackpro', '*', ['id' => $activeEntry['id']]);
 
     send_success_response($entry, 'Clocked out successfully');
 }
@@ -62,7 +62,7 @@ function handle_get_active_entry() {
     $employee = authenticate_user();
 
     $db = get_db_connection();
-    $activeEntry = $db->get('time_entries', '*', [
+    $activeEntry = $db->get('time_entries_timetrackpro', '*', [
         'employee_id' => $employee['id'],
         'clock_out' => null,
         'status' => 'active'
@@ -75,7 +75,7 @@ function handle_get_today_entries() {
     $employee = authenticate_user();
 
     $db = get_db_connection();
-    $entries = $db->select('time_entries', '*', [
+    $entries = $db->select('time_entries_timetrackpro', '*', [
         'employee_id' => $employee['id'],
         'clock_in[>=]' => date('Y-m-d 00:00:00'),
         'clock_in[<=]' => date('Y-m-d 23:59:59'),
@@ -92,7 +92,7 @@ function handle_get_entries() {
     $endDate = $_GET['end_date'] ?? date('Y-m-d');
 
     $db = get_db_connection();
-    $entries = $db->select('time_entries', '*', [
+    $entries = $db->select('time_entries_timetrackpro', '*', [
         'employee_id' => $employee['id'],
         'clock_in[>=]' => $startDate . ' 00:00:00',
         'clock_in[<=]' => $endDate . ' 23:59:59',
@@ -111,7 +111,7 @@ function handle_update_entry() {
     }
 
     $db = get_db_connection();
-    $entry = $db->get('time_entries', '*', [
+    $entry = $db->get('time_entries_timetrackpro', '*', [
         'id' => $data['id'],
         'employee_id' => $employee['id']
     ]);
@@ -131,10 +131,10 @@ function handle_update_entry() {
     }
 
     if (!empty($updateData)) {
-        $db->update('time_entries', $updateData, ['id' => $data['id']]);
+        $db->update('time_entries_timetrackpro', $updateData, ['id' => $data['id']]);
     }
 
-    $updatedEntry = $db->get('time_entries', '*', ['id' => $data['id']]);
+    $updatedEntry = $db->get('time_entries_timetrackpro', '*', ['id' => $data['id']]);
 
     send_success_response($updatedEntry, 'Entry updated successfully');
 }

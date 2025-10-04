@@ -19,7 +19,7 @@ class AdminController
     {
         Auth::requireAdmin();
 
-        $employees = $this->db->select('employees', [
+        $employees = $this->db->select('employees_timetrackpro', [
             'id',
             'email',
             'first_name',
@@ -52,7 +52,7 @@ class AdminController
             Response::error('Employee ID is required', 400);
         }
 
-        $employee = $this->db->get('employees', [
+        $employee = $this->db->get('employees_timetrackpro', [
             'id',
             'email',
             'first_name',
@@ -91,7 +91,7 @@ class AdminController
             }
         }
 
-        $existing = $this->db->get('employees', 'id', ['email' => $data['email']]);
+        $existing = $this->db->get('employees_timetrackpro', 'id', ['email' => $data['email']]);
         if ($existing) {
             Response::error('Email already exists', 400);
         }
@@ -111,10 +111,10 @@ class AdminController
             'is_active' => $data['is_active'] ?? true
         ];
 
-        $this->db->insert('employees', $insertData);
+        $this->db->insert('employees_timetrackpro', $insertData);
         $employeeId = $this->db->id();
 
-        $employee = $this->db->get('employees', [
+        $employee = $this->db->get('employees_timetrackpro', [
             'id',
             'email',
             'first_name',
@@ -142,14 +142,14 @@ class AdminController
             Response::error('Employee ID is required', 400);
         }
 
-        $employee = $this->db->get('employees', 'id', ['id' => $data['id']]);
+        $employee = $this->db->get('employees_timetrackpro', 'id', ['id' => $data['id']]);
         if (!$employee) {
             Response::error('Employee not found', 404);
         }
 
         $updateData = [];
         if (isset($data['email'])) {
-            $existing = $this->db->get('employees', 'id', [
+            $existing = $this->db->get('employees_timetrackpro', 'id', [
                 'email' => $data['email'],
                 'id[!]' => $data['id']
             ]);
@@ -173,7 +173,7 @@ class AdminController
         if (isset($data['is_active'])) $updateData['is_active'] = $data['is_active'];
 
         if (!empty($updateData)) {
-            $this->db->update('employees', $updateData, ['id' => $data['id']]);
+            $this->db->update('employees_timetrackpro', $updateData, ['id' => $data['id']]);
         }
 
         $updatedEmployee = $this->db->get('employees', [
@@ -204,12 +204,12 @@ class AdminController
             Response::error('Employee ID is required', 400);
         }
 
-        $employee = $this->db->get('employees', 'id', ['id' => $data['id']]);
+        $employee = $this->db->get('employees_timetrackpro', 'id', ['id' => $data['id']]);
         if (!$employee) {
             Response::error('Employee not found', 404);
         }
 
-        $this->db->delete('employees', ['id' => $data['id']]);
+        $this->db->delete('employees_timetrackpro', ['id' => $data['id']]);
 
         Response::success(null, 'Employee deleted successfully');
     }
@@ -232,10 +232,10 @@ class AdminController
             $where['employee_id'] = $employeeId;
         }
 
-        $entries = $this->db->select('time_entries', '*', $where);
+        $entries = $this->db->select('time_entries_timetrackpro', '*', $where);
 
         foreach ($entries as &$entry) {
-            $employee = $this->db->get('employees', [
+            $employee = $this->db->get('employees_timetrackpro', [
                 'first_name',
                 'last_name',
                 'employee_number'
@@ -261,10 +261,10 @@ class AdminController
             $where['status'] = $status;
         }
 
-        $requests = $this->db->select('vacation_requests', '*', $where);
+        $requests = $this->db->select('vacation_requests_timetrackpro', '*', $where);
 
         foreach ($requests as &$request) {
-            $employee = $this->db->get('employees', [
+            $employee = $this->db->get('employees_timetrackpro', [
                 'first_name',
                 'last_name',
                 'employee_number'
@@ -297,7 +297,7 @@ class AdminController
             Response::error('Request ID is required', 400);
         }
 
-        $request = $this->db->get('vacation_requests', '*', ['id' => $data['id']]);
+        $request = $this->db->get('vacation_requests_timetrackpro', '*', ['id' => $data['id']]);
 
         if (!$request) {
             Response::error('Request not found', 404);
@@ -307,7 +307,7 @@ class AdminController
             Response::error('Can only approve pending requests', 400);
         }
 
-        $this->db->update('vacation_requests', [
+        $this->db->update('vacation_requests_timetrackpro', [
             'status' => 'approved',
             'approved_by' => $admin['id'],
             'approved_at' => date('Y-m-d H:i:s')
@@ -315,13 +315,13 @@ class AdminController
             'id' => $data['id']
         ]);
 
-        $this->db->update('employees', [
+        $this->db->update('employees_timetrackpro', [
             'vacation_days_used[+]' => $request['days_requested']
         ], [
             'id' => $request['employee_id']
         ]);
 
-        $updatedRequest = $this->db->get('vacation_requests', '*', ['id' => $data['id']]);
+        $updatedRequest = $this->db->get('vacation_requests_timetrackpro', '*', ['id' => $data['id']]);
 
         Response::success($updatedRequest, 'Vacation request approved');
     }
@@ -335,7 +335,7 @@ class AdminController
             Response::error('Request ID is required', 400);
         }
 
-        $request = $this->db->get('vacation_requests', '*', ['id' => $data['id']]);
+        $request = $this->db->get('vacation_requests_timetrackpro', '*', ['id' => $data['id']]);
 
         if (!$request) {
             Response::error('Request not found', 404);
@@ -345,7 +345,7 @@ class AdminController
             Response::error('Can only deny pending requests', 400);
         }
 
-        $this->db->update('vacation_requests', [
+        $this->db->update('vacation_requests_timetrackpro', [
             'status' => 'denied',
             'approved_by' => $admin['id'],
             'approved_at' => date('Y-m-d H:i:s'),
@@ -354,7 +354,7 @@ class AdminController
             'id' => $data['id']
         ]);
 
-        $updatedRequest = $this->db->get('vacation_requests', '*', ['id' => $data['id']]);
+        $updatedRequest = $this->db->get('vacation_requests_timetrackpro', '*', ['id' => $data['id']]);
 
         Response::success($updatedRequest, 'Vacation request denied');
     }
@@ -369,7 +369,7 @@ class AdminController
             Response::error('Employee ID is required', 400);
         }
 
-        $schedules = $this->db->select('work_schedules', '*', [
+        $schedules = $this->db->select('work_schedules_timetrackpro', '*', [
             'employee_id' => $employeeId,
             'ORDER' => ['day_of_week' => 'ASC']
         ]);
@@ -389,7 +389,7 @@ class AdminController
             }
         }
 
-        $existing = $this->db->get('work_schedules', 'id', [
+        $existing = $this->db->get('work_schedules_timetrackpro', 'id', [
             'employee_id' => $data['employee_id'],
             'day_of_week' => $data['day_of_week']
         ]);
@@ -403,17 +403,17 @@ class AdminController
         ];
 
         if ($existing) {
-            $this->db->update('work_schedules', $scheduleData, [
+            $this->db->update('work_schedules_timetrackpro', $scheduleData, [
                 'employee_id' => $data['employee_id'],
                 'day_of_week' => $data['day_of_week']
             ]);
             $scheduleId = $existing;
         } else {
-            $this->db->insert('work_schedules', $scheduleData);
+            $this->db->insert('work_schedules_timetrackpro', $scheduleData);
             $scheduleId = $this->db->id();
         }
 
-        $schedule = $this->db->get('work_schedules', '*', ['id' => $scheduleId]);
+        $schedule = $this->db->get('work_schedules_timetrackpro', '*', ['id' => $scheduleId]);
 
         Response::success($schedule, 'Work schedule saved successfully');
     }

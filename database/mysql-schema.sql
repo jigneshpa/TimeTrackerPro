@@ -1,6 +1,8 @@
 -- ============================================================================
 -- Time Tracking System - MySQL Database Schema
 -- ============================================================================
+-- Database Name: rc_kabba
+-- Table Suffix: _timetrackpro
 -- This schema supports a comprehensive time tracking system with:
 -- - Employee management with roles (admin, employee)
 -- - Time clock entries (clock in/out)
@@ -9,17 +11,21 @@
 -- - Reporting and analytics
 -- ============================================================================
 
+-- Create database if it doesn't exist
+CREATE DATABASE IF NOT EXISTS rc_kabba;
+USE rc_kabba;
+
 -- Drop tables if they exist (for clean setup)
-DROP TABLE IF EXISTS time_entries;
-DROP TABLE IF EXISTS vacation_requests;
-DROP TABLE IF EXISTS work_schedules;
-DROP TABLE IF EXISTS employees;
+DROP TABLE IF EXISTS time_entries_timetrackpro;
+DROP TABLE IF EXISTS vacation_requests_timetrackpro;
+DROP TABLE IF EXISTS work_schedules_timetrackpro;
+DROP TABLE IF EXISTS employees_timetrackpro;
 
 -- ============================================================================
 -- EMPLOYEES TABLE
 -- ============================================================================
 -- Stores employee information and authentication credentials
-CREATE TABLE employees (
+CREATE TABLE employees_timetrackpro (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
@@ -44,7 +50,7 @@ CREATE TABLE employees (
 -- TIME_ENTRIES TABLE
 -- ============================================================================
 -- Stores clock in/out records for employees
-CREATE TABLE time_entries (
+CREATE TABLE time_entries_timetrackpro (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     employee_id INT UNSIGNED NOT NULL,
     clock_in DATETIME NOT NULL,
@@ -61,7 +67,7 @@ CREATE TABLE time_entries (
     ) STORED,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY (employee_id) REFERENCES employees_timetrackpro(id) ON DELETE CASCADE,
     INDEX idx_employee_id (employee_id),
     INDEX idx_clock_in (clock_in),
     INDEX idx_clock_out (clock_out),
@@ -73,7 +79,7 @@ CREATE TABLE time_entries (
 -- VACATION_REQUESTS TABLE
 -- ============================================================================
 -- Stores vacation/PTO requests and approvals
-CREATE TABLE vacation_requests (
+CREATE TABLE vacation_requests_timetrackpro (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     employee_id INT UNSIGNED NOT NULL,
     start_date DATE NOT NULL,
@@ -87,8 +93,8 @@ CREATE TABLE vacation_requests (
     denial_reason TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
-    FOREIGN KEY (approved_by) REFERENCES employees(id) ON DELETE SET NULL,
+    FOREIGN KEY (employee_id) REFERENCES employees_timetrackpro(id) ON DELETE CASCADE,
+    FOREIGN KEY (approved_by) REFERENCES employees_timetrackpro(id) ON DELETE SET NULL,
     INDEX idx_employee_id (employee_id),
     INDEX idx_status (status),
     INDEX idx_dates (start_date, end_date),
@@ -99,7 +105,7 @@ CREATE TABLE vacation_requests (
 -- WORK_SCHEDULES TABLE
 -- ============================================================================
 -- Stores employee work schedules
-CREATE TABLE work_schedules (
+CREATE TABLE work_schedules_timetrackpro (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     employee_id INT UNSIGNED NOT NULL,
     day_of_week TINYINT NOT NULL COMMENT '0=Sunday, 1=Monday, ..., 6=Saturday',
@@ -108,7 +114,7 @@ CREATE TABLE work_schedules (
     is_working_day BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY (employee_id) REFERENCES employees_timetrackpro(id) ON DELETE CASCADE,
     INDEX idx_employee_id (employee_id),
     INDEX idx_day_of_week (day_of_week),
     UNIQUE KEY unique_employee_day (employee_id, day_of_week)
@@ -119,7 +125,7 @@ CREATE TABLE work_schedules (
 -- ============================================================================
 -- Create admin user (password: admin123 - you should hash this properly)
 -- Note: Use Laravel's bcrypt() or Hash::make() to generate proper password hashes
-INSERT INTO employees (
+INSERT INTO employees_timetrackpro (
     email,
     password_hash,
     first_name,
@@ -140,7 +146,7 @@ INSERT INTO employees (
 );
 
 -- Create sample employee (password: employee123)
-INSERT INTO employees (
+INSERT INTO employees_timetrackpro (
     email,
     password_hash,
     first_name,
@@ -165,7 +171,7 @@ INSERT INTO employees (
 -- ============================================================================
 
 -- View for current active time entries
-CREATE OR REPLACE VIEW active_time_entries AS
+CREATE OR REPLACE VIEW active_time_entries_timetrackpro AS
 SELECT
     te.id,
     te.employee_id,
@@ -174,12 +180,12 @@ SELECT
     te.clock_in,
     te.notes,
     TIMESTAMPDIFF(SECOND, te.clock_in, NOW()) / 3600 AS hours_elapsed
-FROM time_entries te
-JOIN employees e ON te.employee_id = e.id
+FROM time_entries_timetrackpro te
+JOIN employees_timetrackpro e ON te.employee_id = e.id
 WHERE te.clock_out IS NULL AND te.status = 'active';
 
 -- View for daily time summaries
-CREATE OR REPLACE VIEW daily_time_summary AS
+CREATE OR REPLACE VIEW daily_time_summary_timetrackpro AS
 SELECT
     DATE(te.clock_in) AS work_date,
     te.employee_id,
@@ -187,13 +193,13 @@ SELECT
     COUNT(*) AS entry_count,
     SUM(te.total_hours) AS total_hours,
     SUM(te.break_duration) AS total_break_minutes
-FROM time_entries te
-JOIN employees e ON te.employee_id = e.id
+FROM time_entries_timetrackpro te
+JOIN employees_timetrackpro e ON te.employee_id = e.id
 WHERE te.clock_out IS NOT NULL
 GROUP BY DATE(te.clock_in), te.employee_id, e.first_name, e.last_name;
 
 -- View for vacation balances
-CREATE OR REPLACE VIEW vacation_balances AS
+CREATE OR REPLACE VIEW vacation_balances_timetrackpro AS
 SELECT
     e.id AS employee_id,
     CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
@@ -201,8 +207,8 @@ SELECT
     e.vacation_days_used,
     (e.vacation_days_total - e.vacation_days_used) AS vacation_days_remaining,
     COUNT(vr.id) AS pending_requests
-FROM employees e
-LEFT JOIN vacation_requests vr ON e.id = vr.employee_id AND vr.status = 'pending'
+FROM employees_timetrackpro e
+LEFT JOIN vacation_requests_timetrackpro vr ON e.id = vr.employee_id AND vr.status = 'pending'
 WHERE e.is_active = TRUE
 GROUP BY e.id, e.first_name, e.last_name, e.vacation_days_total, e.vacation_days_used;
 
@@ -214,16 +220,16 @@ GROUP BY e.id, e.first_name, e.last_name, e.vacation_days_total, e.vacation_days
 -- SELECT e.*,
 --        te.id as active_entry_id,
 --        te.clock_in as current_clock_in
--- FROM employees e
--- LEFT JOIN time_entries te ON e.id = te.employee_id
+-- FROM employees_timetrackpro e
+-- LEFT JOIN time_entries_timetrackpro te ON e.id = te.employee_id
 --     AND te.clock_out IS NULL
 --     AND te.status = 'active'
 -- WHERE e.id = ?;
 
 -- Get time entries for a date range
 -- SELECT te.*, CONCAT(e.first_name, ' ', e.last_name) as employee_name
--- FROM time_entries te
--- JOIN employees e ON te.employee_id = e.id
+-- FROM time_entries_timetrackpro te
+-- JOIN employees_timetrackpro e ON te.employee_id = e.id
 -- WHERE te.clock_in BETWEEN ? AND ?
 -- ORDER BY te.clock_in DESC;
 
@@ -231,8 +237,8 @@ GROUP BY e.id, e.first_name, e.last_name, e.vacation_days_total, e.vacation_days
 -- SELECT vr.*,
 --        CONCAT(e.first_name, ' ', e.last_name) as employee_name,
 --        e.employee_number
--- FROM vacation_requests vr
--- JOIN employees e ON vr.employee_id = e.id
+-- FROM vacation_requests_timetrackpro vr
+-- JOIN employees_timetrackpro e ON vr.employee_id = e.id
 -- WHERE vr.status = 'pending'
 -- ORDER BY vr.created_at ASC;
 
@@ -243,14 +249,14 @@ GROUP BY e.id, e.first_name, e.last_name, e.vacation_days_total, e.vacation_days
 DELIMITER //
 
 -- Procedure to clock in an employee
-CREATE PROCEDURE clock_in_employee(
+CREATE PROCEDURE clock_in_employee_timetrackpro(
     IN p_employee_id INT,
     IN p_notes TEXT
 )
 BEGIN
     -- Check if employee already has an active entry
     IF EXISTS (
-        SELECT 1 FROM time_entries
+        SELECT 1 FROM time_entries_timetrackpro
         WHERE employee_id = p_employee_id
         AND clock_out IS NULL
         AND status = 'active'
@@ -258,7 +264,7 @@ BEGIN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Employee already has an active time entry';
     ELSE
-        INSERT INTO time_entries (employee_id, clock_in, notes, status)
+        INSERT INTO time_entries_timetrackpro (employee_id, clock_in, notes, status)
         VALUES (p_employee_id, NOW(), p_notes, 'active');
 
         SELECT LAST_INSERT_ID() as entry_id;
@@ -266,7 +272,7 @@ BEGIN
 END //
 
 -- Procedure to clock out an employee
-CREATE PROCEDURE clock_out_employee(
+CREATE PROCEDURE clock_out_employee_timetrackpro(
     IN p_employee_id INT,
     IN p_break_duration INT
 )
@@ -275,7 +281,7 @@ BEGIN
 
     -- Find active entry
     SELECT id INTO v_entry_id
-    FROM time_entries
+    FROM time_entries_timetrackpro
     WHERE employee_id = p_employee_id
     AND clock_out IS NULL
     AND status = 'active'
@@ -285,7 +291,7 @@ BEGIN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'No active time entry found for employee';
     ELSE
-        UPDATE time_entries
+        UPDATE time_entries_timetrackpro
         SET clock_out = NOW(),
             break_duration = p_break_duration,
             status = 'completed'
