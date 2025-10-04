@@ -25,8 +25,17 @@ handle_cors();
 $method = $_SERVER['REQUEST_METHOD'];
 $uri = $_SERVER['REQUEST_URI'];
 $path = parse_url($uri, PHP_URL_PATH);
+$path = str_replace('/MedooApi/api.php', '', $path);
 $path = str_replace('/api.php', '', $path);
 $path = rtrim($path, '/');
+
+// If path is empty or just the script name, check query string for endpoint
+if (empty($path) || $path === '/MedooApi' || $path === '') {
+    // Support ?endpoint=/api/auth/login format
+    if (isset($_GET['endpoint'])) {
+        $path = $_GET['endpoint'];
+    }
+}
 
 try {
     if ($path === '/api/auth/login' && $method === 'POST') {

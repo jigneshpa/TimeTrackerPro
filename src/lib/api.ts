@@ -38,7 +38,12 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+    // For PHP API, use query string format
+    const url = this.baseUrl.includes('.php')
+      ? `${this.baseUrl}?endpoint=${encodeURIComponent(endpoint)}`
+      : `${this.baseUrl}${endpoint}`;
+
+    const response = await fetch(url, {
       ...options,
       headers,
     });
