@@ -1,5 +1,5 @@
 {
-    "name": "time-tracking-api",
+    "name": "company/time-tracking-api",
     "description": "Time Tracking System API with Medoo",
     "type": "project",
     "require": {
