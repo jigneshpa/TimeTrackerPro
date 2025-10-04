@@ -20,15 +20,52 @@ DROP TABLE IF EXISTS time_entries_timetrackpro;
 DROP TABLE IF EXISTS vacation_requests_timetrackpro;
 DROP TABLE IF EXISTS work_schedules_timetrackpro;
 DROP TABLE IF EXISTS employees_timetrackpro;
+DROP TABLE IF EXISTS users;
+
+-- ============================================================================
+-- USERS TABLE
+-- ============================================================================
+-- Stores user authentication and profile information
+CREATE TABLE IF NOT EXISTS users (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    unique_id VARCHAR(255) NOT NULL UNIQUE,
+    employee_code VARCHAR(6) NOT NULL UNIQUE,
+    first_name VARCHAR(255) NOT NULL,
+    middle_name VARCHAR(255) DEFAULT NULL,
+    last_name VARCHAR(255) DEFAULT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    mobile_phone VARCHAR(255) DEFAULT NULL,
+    phone_number VARCHAR(255) DEFAULT NULL,
+    street_address VARCHAR(255) DEFAULT NULL,
+    city VARCHAR(255) DEFAULT NULL,
+    state VARCHAR(255) DEFAULT NULL,
+    zip_code VARCHAR(255) DEFAULT NULL,
+    country VARCHAR(255) DEFAULT NULL,
+    start_date DATE DEFAULT NULL,
+    end_date DATE DEFAULT NULL,
+    pay_type VARCHAR(255) DEFAULT NULL,
+    limit_start_time TINYINT(1) NOT NULL DEFAULT 0,
+    limit_end_time TINYINT(1) NOT NULL DEFAULT 0,
+    email_verified_at TIMESTAMP NULL DEFAULT NULL,
+    password VARCHAR(255) DEFAULT NULL,
+    status ENUM('Active', 'Inactive') NOT NULL DEFAULT 'Active',
+    remember_token VARCHAR(100) DEFAULT NULL,
+    created_at TIMESTAMP NULL DEFAULT NULL,
+    updated_at TIMESTAMP NULL DEFAULT NULL,
+    INDEX idx_unique_id (unique_id),
+    INDEX idx_employee_code (employee_code),
+    INDEX idx_email (email),
+    INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
 -- EMPLOYEES TABLE
 -- ============================================================================
--- Stores employee information and authentication credentials
+-- Stores employee information linked to users table
 CREATE TABLE employees_timetrackpro (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED DEFAULT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     role ENUM('admin', 'employee') NOT NULL DEFAULT 'employee',
@@ -40,6 +77,8 @@ CREATE TABLE employees_timetrackpro (
     vacation_days_used DECIMAL(5,2) NOT NULL DEFAULT 0.00,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_user_id (user_id),
     INDEX idx_email (email),
     INDEX idx_employee_number (employee_number),
     INDEX idx_role (role),
@@ -123,47 +162,103 @@ CREATE TABLE work_schedules_timetrackpro (
 -- ============================================================================
 -- SAMPLE DATA (Optional - for testing)
 -- ============================================================================
--- Create admin user (password: admin123 - you should hash this properly)
--- Note: Use Laravel's bcrypt() or Hash::make() to generate proper password hashes
-INSERT INTO employees_timetrackpro (
+-- Password for all test users: password
+-- Note: Password hash generated using PHP password_hash() with PASSWORD_BCRYPT
+
+-- Insert admin user into users table
+INSERT INTO users (
+    unique_id,
+    employee_code,
+    first_name,
+    last_name,
     email,
-    password_hash,
+    password,
+    status,
+    start_date,
+    created_at,
+    updated_at
+) VALUES (
+    'USR001',
+    'EMP001',
+    'Admin',
+    'User',
+    'admin@example.com',
+    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+    'Active',
+    CURDATE(),
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+);
+
+-- Insert employee user into users table
+INSERT INTO users (
+    unique_id,
+    employee_code,
+    first_name,
+    last_name,
+    email,
+    password,
+    status,
+    start_date,
+    created_at,
+    updated_at
+) VALUES (
+    'USR002',
+    'EMP002',
+    'John',
+    'Doe',
+    'employee@example.com',
+    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+    'Active',
+    CURDATE(),
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+);
+
+-- Create admin employee record linked to user
+INSERT INTO employees_timetrackpro (
+    user_id,
+    email,
     first_name,
     last_name,
     role,
     employee_number,
     hire_date,
-    vacation_days_total
+    vacation_days_total,
+    is_active
 ) VALUES (
+    1,
     'admin@example.com',
-    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', -- password: password
     'Admin',
     'User',
     'admin',
     'EMP001',
     CURDATE(),
-    20.00
+    20.00,
+    TRUE
 );
 
--- Create sample employee (password: employee123)
+-- Create sample employee record linked to user
 INSERT INTO employees_timetrackpro (
+    user_id,
     email,
-    password_hash,
     first_name,
     last_name,
     role,
     employee_number,
     hire_date,
-    vacation_days_total
+    vacation_days_total,
+    is_active
 ) VALUES (
+    2,
     'employee@example.com',
-    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', -- password: password
     'John',
     'Doe',
     'employee',
     'EMP002',
     CURDATE(),
-    15.00
+    15.00,
+    TRUE
 );
 
 -- ============================================================================

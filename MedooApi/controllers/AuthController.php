@@ -23,16 +23,41 @@ class AuthController
             Response::error('Email and password are required', 400);
         }
 
-        $employee = $this->db->get('employees_timetrackpro', '*', [
+        $user = $this->db->get('users', '*', [
             'email' => $data['email'],
-            'is_active' => true
+            'status' => 'Active'
         ]);
 
-        if (!$employee || !password_verify($data['password'], $employee['password_hash'])) {
+        if (!$user || !password_verify($data['password'], $user['password'])) {
             Response::error('Invalid credentials', 401);
         }
 
-        unset($employee['password_hash']);
+        $employee = $this->db->get('employees_timetrackpro', '*', [
+            'user_id' => $user['id'],
+            'is_active' => true
+        ]);
+
+        if (!$employee) {
+            $employee = [
+                'user_id' => $user['id'],
+                'email' => $user['email'],
+                'first_name' => $user['first_name'],
+                'last_name' => $user['last_name'] ?? '',
+                'role' => 'employee',
+                'employee_number' => $user['employee_code'],
+                'phone' => $user['mobile_phone'] ?? $user['phone_number'],
+                'hire_date' => $user['start_date'],
+                'is_active' => true,
+                'vacation_days_total' => 0,
+                'vacation_days_used' => 0
+            ];
+
+            $this->db->insert('employees_timetrackpro', $employee);
+            $employeeId = $this->db->id();
+            $employee = $this->db->get('employees_timetrackpro', '*', ['id' => $employeeId]);
+        }
+
+        unset($user['password']);
 
         $token = JWT::encode([
             'user_id' => $employee['id'],
@@ -50,37 +75,55 @@ class AuthController
     {
         $data = json_decode(file_get_contents('php://input'), true);
 
-        $required = ['email', 'password', 'first_name', 'last_name'];
+        $required = ['email', 'password', 'first_name', 'last_name', 'employee_code'];
         foreach ($required as $field) {
             if (!isset($data[$field]) || empty($data[$field])) {
                 Response::error("Field '$field' is required", 400);
             }
         }
 
-        $existing = $this->db->get('employees_timetrackpro', 'id', ['email' => $data['email']]);
+        $existing = $this->db->get('users', 'id', ['email' => $data['email']]);
         if ($existing) {
             Response::error('Email already exists', 400);
         }
 
         $passwordHash = password_hash($data['password'], PASSWORD_BCRYPT);
+        $uniqueId = 'USR' . str_pad(rand(1, 99999), 5, '0', STR_PAD_LEFT);
 
-        $insertData = [
-            'email' => $data['email'],
-            'password_hash' => $passwordHash,
+        $userInsertData = [
+            'unique_id' => $uniqueId,
+            'employee_code' => $data['employee_code'],
             'first_name' => $data['first_name'],
-            'last_name' => $data['last_name'],
+            'last_name' => $data['last_name'] ?? '',
+            'email' => $data['email'],
+            'password' => $passwordHash,
+            'mobile_phone' => $data['phone'] ?? null,
+            'start_date' => $data['hire_date'] ?? date('Y-m-d'),
+            'status' => 'Active',
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+
+        $this->db->insert('users', $userInsertData);
+        $userId = $this->db->id();
+
+        $employeeInsertData = [
+            'user_id' => $userId,
+            'email' => $data['email'],
+            'first_name' => $data['first_name'],
+            'last_name' => $data['last_name'] ?? '',
             'role' => $data['role'] ?? 'employee',
-            'employee_number' => $data['employee_number'] ?? null,
+            'employee_number' => $data['employee_code'],
             'phone' => $data['phone'] ?? null,
             'hire_date' => $data['hire_date'] ?? date('Y-m-d'),
             'vacation_days_total' => $data['vacation_days_total'] ?? 0,
+            'is_active' => true
         ];
 
-        $this->db->insert('employees_timetrackpro', $insertData);
+        $this->db->insert('employees_timetrackpro', $employeeInsertData);
         $employeeId = $this->db->id();
 
         $employee = $this->db->get('employees_timetrackpro', '*', ['id' => $employeeId]);
-        unset($employee['password_hash']);
 
         $token = JWT::encode([
             'user_id' => $employee['id'],

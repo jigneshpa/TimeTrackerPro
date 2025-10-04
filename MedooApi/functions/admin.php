@@ -76,20 +76,39 @@ function handle_create_employee() {
     }
 
     $db = get_db_connection();
-    $existing = $db->get('employees_timetrackpro', 'id', ['email' => $data['email']]);
+    $existing = $db->get('users', 'id', ['email' => $data['email']]);
     if ($existing) {
         send_error_response('Email already exists', 400);
     }
 
     $passwordHash = password_hash($data['password'], PASSWORD_BCRYPT);
+    $uniqueId = 'USR' . str_pad(rand(1, 99999), 5, '0', STR_PAD_LEFT);
+    $employeeCode = $data['employee_number'] ?? ('EMP' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT));
+
+    $userInsertData = [
+        'unique_id' => $uniqueId,
+        'employee_code' => $employeeCode,
+        'first_name' => $data['first_name'],
+        'last_name' => $data['last_name'] ?? '',
+        'email' => $data['email'],
+        'password' => $passwordHash,
+        'mobile_phone' => $data['phone'] ?? null,
+        'start_date' => $data['hire_date'] ?? date('Y-m-d'),
+        'status' => ($data['is_active'] ?? true) ? 'Active' : 'Inactive',
+        'created_at' => date('Y-m-d H:i:s'),
+        'updated_at' => date('Y-m-d H:i:s')
+    ];
+
+    $db->insert('users', $userInsertData);
+    $userId = $db->id();
 
     $insertData = [
+        'user_id' => $userId,
         'email' => $data['email'],
-        'password_hash' => $passwordHash,
         'first_name' => $data['first_name'],
-        'last_name' => $data['last_name'],
+        'last_name' => $data['last_name'] ?? '',
         'role' => $data['role'] ?? 'employee',
-        'employee_number' => $data['employee_number'] ?? null,
+        'employee_number' => $employeeCode,
         'phone' => $data['phone'] ?? null,
         'hire_date' => $data['hire_date'] ?? date('Y-m-d'),
         'vacation_days_total' => $data['vacation_days_total'] ?? 0,
