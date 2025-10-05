@@ -32,6 +32,20 @@ class AuthController
             Response::error('Invalid credentials', 401);
         }
 
+        $userRoles = $this->db->select('model_has_roles', [
+            '[>]roles' => ['role_id' => 'id']
+        ], [
+            'roles.id',
+            'roles.name',
+            'roles.short_name',
+            'roles.color'
+        ], [
+            'model_has_roles.model_id' => $user['id'],
+            'model_has_roles.model_type' => 'App\\Models\\Iam\\Personnel\\User'
+        ]);
+
+        $primaryRole = !empty($userRoles) && isset($userRoles[0]['short_name']) ? $userRoles[0]['short_name'] : 'employee';
+
         $employee = $this->db->get('employees_timetrackpro', '*', [
             'user_id' => $user['id'],
             'is_active' => true
@@ -43,7 +57,7 @@ class AuthController
                 'email' => $user['email'],
                 'first_name' => $user['first_name'],
                 'last_name' => $user['last_name'] ?? '',
-                'role' => 'employee',
+                'role' => $primaryRole,
                 'employee_number' => $user['employee_code'],
                 'phone' => $user['mobile_phone'] ?? $user['phone_number'],
                 'hire_date' => $user['start_date'],
@@ -58,6 +72,7 @@ class AuthController
         }
 
         unset($user['password']);
+        $employee['roles'] = $userRoles;
 
         $token = JWT::encode([
             'user_id' => $employee['id'],

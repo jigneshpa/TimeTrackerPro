@@ -20,7 +20,44 @@ DROP TABLE IF EXISTS time_entries_timetrackpro;
 DROP TABLE IF EXISTS vacation_requests_timetrackpro;
 DROP TABLE IF EXISTS work_schedules_timetrackpro;
 DROP TABLE IF EXISTS employees_timetrackpro;
+DROP TABLE IF EXISTS model_has_roles;
+DROP TABLE IF EXISTS role_has_permissions;
+DROP TABLE IF EXISTS roles;
+DROP TABLE IF EXISTS permissions;
 DROP TABLE IF EXISTS users;
+
+-- ============================================================================
+-- PERMISSIONS TABLE
+-- ============================================================================
+-- Stores system permissions
+CREATE TABLE IF NOT EXISTS permissions (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    guard_name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NULL DEFAULT NULL,
+    updated_at TIMESTAMP NULL DEFAULT NULL,
+    UNIQUE KEY permissions_name_guard_name_unique (name, guard_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================================
+-- ROLES TABLE
+-- ============================================================================
+-- Stores user roles
+CREATE TABLE IF NOT EXISTS roles (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    unique_id VARCHAR(255) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    guard_name VARCHAR(255) NOT NULL,
+    short_name VARCHAR(255) DEFAULT NULL,
+    status ENUM('Active', 'Inactive') NOT NULL DEFAULT 'Active',
+    color VARCHAR(255) DEFAULT NULL,
+    description TEXT DEFAULT NULL,
+    created_at TIMESTAMP NULL DEFAULT NULL,
+    updated_at TIMESTAMP NULL DEFAULT NULL,
+    UNIQUE KEY roles_name_guard_name_unique (name, guard_name),
+    INDEX idx_unique_id (unique_id),
+    INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
 -- USERS TABLE
@@ -56,6 +93,32 @@ CREATE TABLE IF NOT EXISTS users (
     INDEX idx_employee_code (employee_code),
     INDEX idx_email (email),
     INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================================
+-- MODEL_HAS_ROLES TABLE
+-- ============================================================================
+-- Links users to roles
+CREATE TABLE IF NOT EXISTS model_has_roles (
+    role_id BIGINT UNSIGNED NOT NULL,
+    model_type VARCHAR(255) NOT NULL,
+    model_id BIGINT UNSIGNED NOT NULL,
+    PRIMARY KEY (role_id, model_id, model_type),
+    INDEX model_has_roles_model_id_model_type_index (model_id, model_type),
+    CONSTRAINT model_has_roles_role_id_foreign FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================================
+-- ROLE_HAS_PERMISSIONS TABLE
+-- ============================================================================
+-- Links roles to permissions
+CREATE TABLE IF NOT EXISTS role_has_permissions (
+    permission_id BIGINT UNSIGNED NOT NULL,
+    role_id BIGINT UNSIGNED NOT NULL,
+    PRIMARY KEY (permission_id, role_id),
+    INDEX role_has_permissions_role_id_foreign (role_id),
+    CONSTRAINT role_has_permissions_permission_id_foreign FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE,
+    CONSTRAINT role_has_permissions_role_id_foreign FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
@@ -165,6 +228,13 @@ CREATE TABLE work_schedules_timetrackpro (
 -- Password for all test users: password
 -- Note: Password hash generated using PHP password_hash() with PASSWORD_BCRYPT
 
+-- Insert roles
+INSERT INTO roles (unique_id, name, guard_name, short_name, status, color, description, created_at, updated_at) VALUES
+('ROLE-ZYRE-C6BL', 'Master Admin', 'web', 'master_admin', 'Active', '#ef4444', 'Full access to all system features and settings.', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('ROLE-DC4E-KFYN', 'Admin', 'web', 'admin', 'Active', '#3b82f6', 'Manage core administrative tasks.', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('ROLE-RXZN-9RU0', 'Sales', 'web', 'sales', 'Active', '#10b981', 'Access to sales modules and client management.', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('ROLE-SHCC-ALJ4', 'Technician', 'web', 'technician', 'Active', '#8b5cf6', 'Handle technical operations and support.', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
 -- Insert admin user into users table
 INSERT INTO users (
     unique_id,
@@ -260,6 +330,15 @@ INSERT INTO employees_timetrackpro (
     15.00,
     TRUE
 );
+
+-- Assign roles to users
+-- Admin user gets Master Admin role
+INSERT INTO model_has_roles (role_id, model_type, model_id) VALUES
+(1, 'App\\Models\\Iam\\Personnel\\User', 1);
+
+-- Employee user gets Sales role
+INSERT INTO model_has_roles (role_id, model_type, model_id) VALUES
+(3, 'App\\Models\\Iam\\Personnel\\User', 2);
 
 -- ============================================================================
 -- VIEWS FOR REPORTING
