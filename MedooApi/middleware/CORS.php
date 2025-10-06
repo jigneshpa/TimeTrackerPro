@@ -6,7 +6,7 @@ class CORS
 {
     public static function handle()
     {
-        $origin = getenv('CORS_ORIGIN') ?: 'http://localhost:5173';
+        $origin = getenv('CORS_ORIGIN') ?: 'http://timetrackerpro.kabba.ai';
 
         header("Access-Control-Allow-Origin: $origin");
         header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
