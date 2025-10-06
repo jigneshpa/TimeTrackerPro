@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost/MedooApi/api.php';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost/MedooApi/api.php';
 
 interface ApiResponse<T = any> {
   success: boolean;
@@ -7,15 +7,16 @@ interface ApiResponse<T = any> {
   errors?: any;
 }
 
-let authToken: string | null = localStorage.getItem('auth_token');
-
 export function setToken(token: string | null) {
-  authToken = token;
   if (token) {
     localStorage.setItem('auth_token', token);
   } else {
     localStorage.removeItem('auth_token');
   }
+}
+
+function getToken(): string | null {
+  return localStorage.getItem('auth_token');
 }
 
 async function fetchAPI<T>(
@@ -27,8 +28,9 @@ async function fetchAPI<T>(
     'Content-Type': 'application/json',
   };
 
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`;
+  const token = getToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
   const url = `${API_BASE}?endpoint=${encodeURIComponent(endpoint)}`;

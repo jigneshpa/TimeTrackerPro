@@ -23,7 +23,7 @@ class Auth
         }
 
         $db = Database::getInstance()->getConnection();
-        $employee = $db->get('employees', '*', [
+        $employee = $db->get('employees_timetrackpro', '*', [
             'id' => $payload['user_id'],
             'is_active' => true
         ]);

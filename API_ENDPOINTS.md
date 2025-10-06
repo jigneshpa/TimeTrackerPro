@@ -4,8 +4,16 @@ This document lists all API endpoints used in the React application and where th
 
 ## Base Configuration
 
-**API Base URL**: `http://localhost/MedooApi/api.php`
+**API Base URL**: Configurable via environment variable
+**Environment Variable**: `VITE_API_URL`
+**Default**: `http://localhost/MedooApi/api.php`
+**Production**: `http://timetrackerpro.kabba.ai/MedooApi/api.php`
 **Location**: `src/lib/api.ts` (line 1)
+
+To change the API URL, update `.env`:
+```env
+VITE_API_URL=http://your-domain.com/MedooApi/api.php
+```
 
 ## Authentication Endpoints
 
