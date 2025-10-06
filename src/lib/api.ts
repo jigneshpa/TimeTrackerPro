@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost/MedooApi/api.php';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://timetrackerpro.kabba.ai/MedooApi/api.php';
 
 interface ApiResponse<T = any> {
   success: boolean;
