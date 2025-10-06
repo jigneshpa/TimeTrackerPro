@@ -9,9 +9,9 @@ function get_db_connection() {
         $config = [
             'type' => 'mysql',
             'host' => getenv('DB_HOST') ?: 'localhost',
-            'database' => getenv('DB_NAME') ?: 'rc_kabba',
-            'username' => getenv('DB_USER') ?: 'root',
-            'password' => getenv('DB_PASSWORD') ?: '',
+            'database' => getenv('DB_NAME') ?: 'kabba_admin',
+            'username' => getenv('DB_USER') ?: 'kabba_admin',
+            'password' => getenv('DB_PASSWORD') ?: 'Admin@7777',
             'charset' => 'utf8mb4',
             'collation' => 'utf8mb4_unicode_ci',
             'port' => getenv('DB_PORT') ?: 3306,
