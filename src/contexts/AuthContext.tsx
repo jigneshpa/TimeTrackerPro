@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { api } from '../lib/api';
+import { login, getAuthMe, setToken } from '../lib/api';
 
 interface User {
   id: string;
@@ -45,7 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (token) {
         try {
-          const response = await api.get('/api/auth/me');
+          const response = await getAuthMe();
           if (response.success && response.data) {
             const emp = response.data;
             setUser({ id: emp.id, email: emp.email });
@@ -72,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const response = await api.post('/api/auth/login', { email, password });
+    const response = await login(email, password);
 
     if (!response.success || !response.data) {
       throw new Error(response.message || 'Invalid email or password');
@@ -80,7 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const { token, user: userData } = response.data;
 
-    api.setToken(token);
+    setToken(token);
 
     const user = { id: userData.id, email: userData.email };
     const employee = {
@@ -100,7 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     setUser(null);
     setEmployee(null);
-    api.setToken(null);
+    setToken(null);
   };
 
   return (

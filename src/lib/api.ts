@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost/MedooApi/api.php';
+const API_BASE = 'http://localhost/MedooApi/api.php';
 
 interface ApiResponse<T = any> {
   success: boolean;
@@ -7,80 +7,96 @@ interface ApiResponse<T = any> {
   errors?: any;
 }
 
-class ApiClient {
-  private baseUrl: string;
-  private token: string | null;
+let authToken: string | null = localStorage.getItem('auth_token');
 
-  constructor(baseUrl: string) {
-    this.baseUrl = baseUrl;
-    this.token = localStorage.getItem('auth_token');
-  }
-
-  setToken(token: string | null) {
-    this.token = token;
-    if (token) {
-      localStorage.setItem('auth_token', token);
-    } else {
-      localStorage.removeItem('auth_token');
-    }
-  }
-
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
-
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
-    }
-
-    // For PHP API, use query string format
-    const url = this.baseUrl.includes('.php')
-      ? `${this.baseUrl}?endpoint=${encodeURIComponent(endpoint)}`
-      : `${this.baseUrl}${endpoint}`;
-
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || 'An error occurred');
-    }
-
-    return data;
-  }
-
-  async get<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: 'GET' });
-  }
-
-  async post<T>(endpoint: string, body?: any): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
-  }
-
-  async put<T>(endpoint: string, body?: any): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'PUT',
-      body: JSON.stringify(body),
-    });
-  }
-
-  async delete<T>(endpoint: string, body?: any): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'DELETE',
-      body: JSON.stringify(body),
-    });
+export function setToken(token: string | null) {
+  authToken = token;
+  if (token) {
+    localStorage.setItem('auth_token', token);
+  } else {
+    localStorage.removeItem('auth_token');
   }
 }
 
-export const api = new ApiClient(API_BASE_URL);
+async function fetchAPI<T>(
+  endpoint: string,
+  method: string = 'GET',
+  body?: any
+): Promise<ApiResponse<T>> {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+
+  const url = `${API_BASE}?endpoint=${encodeURIComponent(endpoint)}`;
+
+  const options: RequestInit = {
+    method,
+    headers,
+    credentials: 'include',
+  };
+
+  if (body) {
+    options.body = JSON.stringify(body);
+  }
+
+  const response = await fetch(url, options);
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || 'An error occurred');
+  }
+
+  return data;
+}
+
+export async function login(email: string, password: string) {
+  const response = await fetchAPI<{ token: string; user: any }>(
+    '/api/auth/login',
+    'POST',
+    { email, password }
+  );
+  return response;
+}
+
+export async function getAuthMe() {
+  const response = await fetchAPI<any>('/api/auth/me', 'GET');
+  return response;
+}
+
+export async function getActiveTimeClock() {
+  const response = await fetchAPI<any>('/api/timeclock/active', 'GET');
+  return response;
+}
+
+export async function getTodayTimeEntries() {
+  const response = await fetchAPI<any>('/api/timeclock/today', 'GET');
+  return response;
+}
+
+export async function clockIn(notes?: string) {
+  const response = await fetchAPI<any>('/api/timeclock/clock-in', 'POST', { notes });
+  return response;
+}
+
+export async function clockOut(breakDuration?: number) {
+  const response = await fetchAPI<any>(
+    '/api/timeclock/clock-out',
+    'POST',
+    { break_duration: breakDuration }
+  );
+  return response;
+}
+
+export const api = {
+  setToken,
+  login,
+  getAuthMe,
+  getActiveTimeClock,
+  getTodayTimeEntries,
+  clockIn,
+  clockOut,
+};

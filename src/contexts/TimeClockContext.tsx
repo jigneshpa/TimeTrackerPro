@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
-import { api } from '../lib/api';
+import { getActiveTimeClock, getTodayTimeEntries, clockIn as apiClockIn, clockOut as apiClockOut } from '../lib/api';
 
 interface TimeEntry {
   id: string;
@@ -50,7 +50,7 @@ export const TimeClockProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!employee) return;
 
     try {
-      const response = await api.get('/api/timeclock/active');
+      const response = await getActiveTimeClock();
       if (response.success) {
         setActiveEntry(response.data);
         setCurrentStatus(response.data ? 'clocked_in' : 'clocked_out');
@@ -64,7 +64,7 @@ export const TimeClockProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!employee) return;
 
     try {
-      const response = await api.get('/api/timeclock/today');
+      const response = await getTodayTimeEntries();
       if (response.success) {
         setTodayEntries(response.data || []);
       }
@@ -77,7 +77,7 @@ export const TimeClockProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!employee) return;
 
     try {
-      const response = await api.post('/api/timeclock/clock-in', { notes });
+      const response = await apiClockIn(notes);
       if (response.success) {
         await loadActiveEntry();
         await refreshEntries();
@@ -92,7 +92,7 @@ export const TimeClockProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!employee) return;
 
     try {
-      const response = await api.post('/api/timeclock/clock-out', { break_duration: breakDuration });
+      const response = await apiClockOut(breakDuration);
       if (response.success) {
         setActiveEntry(null);
         setCurrentStatus('clocked_out');
