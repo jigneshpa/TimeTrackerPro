@@ -129,6 +129,46 @@ export async function deleteEmployee(id: string) {
   return response;
 }
 
+export async function getAllTimeEntries(startDate?: string, endDate?: string, employeeId?: string) {
+  let endpoint = '/api/admin/time-entries';
+  const params = new URLSearchParams();
+  if (startDate) params.append('start_date', startDate);
+  if (endDate) params.append('end_date', endDate);
+  if (employeeId) params.append('employee_id', employeeId);
+  if (params.toString()) endpoint += `&${params.toString()}`;
+
+  const response = await fetchAPI<any>(endpoint, 'GET');
+  return response;
+}
+
+export async function getAllVacationRequests(status?: string) {
+  let endpoint = '/api/admin/vacation-requests';
+  if (status) endpoint += `&status=${status}`;
+
+  const response = await fetchAPI<any>(endpoint, 'GET');
+  return response;
+}
+
+export async function approveVacation(id: string) {
+  const response = await fetchAPI<any>('/api/admin/vacation/approve', 'POST', { id });
+  return response;
+}
+
+export async function denyVacation(id: string, denialReason?: string) {
+  const response = await fetchAPI<any>('/api/admin/vacation/deny', 'POST', { id, denial_reason: denialReason });
+  return response;
+}
+
+export async function getWorkSchedules(employeeId: string) {
+  const response = await fetchAPI<any>(`/api/admin/work-schedules&employee_id=${employeeId}`, 'GET');
+  return response;
+}
+
+export async function saveWorkSchedule(scheduleData: any) {
+  const response = await fetchAPI<any>('/api/admin/work-schedules', 'POST', scheduleData);
+  return response;
+}
+
 export const api = {
   setToken,
   login,
@@ -142,4 +182,10 @@ export const api = {
   createEmployee,
   updateEmployee,
   deleteEmployee,
+  getAllTimeEntries,
+  getAllVacationRequests,
+  approveVacation,
+  denyVacation,
+  getWorkSchedules,
+  saveWorkSchedule,
 };

@@ -397,11 +397,6 @@ const SystemSettings: React.FC = () => {
         </button>
       </div>
 
-      <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <p className="text-sm text-yellow-800">
-          <strong>Demo Mode:</strong> Settings are saved locally and will persist during your session.
-        </p>
-      </div>
 
       <div className="space-y-6">
         {/* Main Settings Grid */}

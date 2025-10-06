@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Edit, Save, X, Check, AlertCircle } from 'lucide-react';
+import { getEmployees, getAllVacationRequests, approveVacation, denyVacation, updateEmployee } from '../../lib/api';
 
 interface VacationRecord {
   id?: string;
@@ -21,33 +22,6 @@ interface VacationRequest {
   created_at: string;
 }
 
-// Mock vacation data for demo
-const mockVacationRecords: VacationRecord[] = [
-  {
-    id: '1',
-    employee_id: '1',
-    employee_name: 'John Doe',
-    allotted_hours: 80,
-    accrued_hours: 24.5,
-    used_hours: 8.0,
-  },
-  {
-    id: '2',
-    employee_id: '3',
-    employee_name: 'Jane Smith',
-    allotted_hours: 80,
-    accrued_hours: 32.0,
-    used_hours: 16.0,
-  },
-  {
-    id: '3',
-    employee_id: '2',
-    employee_name: 'Admin User',
-    allotted_hours: 120,
-    accrued_hours: 28.0,
-    used_hours: 0.0,
-  }
-];
 
 const VacationManagement: React.FC = () => {
   const [vacationRecords, setVacationRecords] = useState<VacationRecord[]>([]);
@@ -67,8 +41,18 @@ const VacationManagement: React.FC = () => {
 
   const fetchVacationRecords = async () => {
     try {
-      // Use mock data for demo
-      setVacationRecords(mockVacationRecords);
+      const response = await getEmployees();
+      if (response.success && response.data) {
+        const records: VacationRecord[] = response.data.map((emp: any) => ({
+          id: emp.id,
+          employee_id: emp.id,
+          employee_name: `${emp.first_name} ${emp.last_name}`,
+          allotted_hours: (emp.vacation_days_total || 0) * 8,
+          accrued_hours: 0,
+          used_hours: (emp.vacation_days_used || 0) * 8,
+        }));
+        setVacationRecords(records);
+      }
     } catch (error) {
       console.error('Error fetching vacation records:', error);
     } finally {
@@ -78,26 +62,10 @@ const VacationManagement: React.FC = () => {
 
   const fetchVacationRequests = async () => {
     try {
-      // Fetch all vacation requests from all employees
-      const employees = ['1', '2', '3'];
-      const employeeNames = { '1': 'John Doe', '2': 'Admin User', '3': 'Jane Smith' };
-      let allRequests: VacationRequest[] = [];
-
-      employees.forEach(employeeId => {
-        const requestsKey = `vacation_requests_${employeeId}`;
-        const savedRequests = localStorage.getItem(requestsKey);
-        if (savedRequests) {
-          const requests = JSON.parse(savedRequests).map((req: VacationRequest) => ({
-            ...req,
-            employee_name: employeeNames[employeeId as keyof typeof employeeNames]
-          }));
-          allRequests = [...allRequests, ...requests];
-        }
-      });
-
-      // Sort by created date, newest first
-      allRequests.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      setVacationRequests(allRequests);
+      const response = await getAllVacationRequests();
+      if (response.success && response.data) {
+        setVacationRequests(response.data);
+      }
     } catch (error) {
       console.error('Error fetching vacation requests:', error);
     }
@@ -105,28 +73,11 @@ const VacationManagement: React.FC = () => {
 
   const handleApproveRequest = async (requestId: string, employeeId: string, hours: number) => {
     try {
-      // Update request status
-      const requestsKey = `vacation_requests_${employeeId}`;
-      const savedRequests = localStorage.getItem(requestsKey);
-      if (savedRequests) {
-        const requests = JSON.parse(savedRequests);
-        const updatedRequests = requests.map((req: VacationRequest) =>
-          req.id === requestId ? { ...req, status: 'approved' } : req
-        );
-        localStorage.setItem(requestsKey, JSON.stringify(updatedRequests));
+      const response = await approveVacation(requestId);
+      if (response.success) {
+        await fetchVacationRequests();
+        await fetchVacationRecords();
       }
-
-      // Update used hours in vacation records
-      setVacationRecords(prev =>
-        prev.map(record =>
-          record.employee_id === employeeId
-            ? { ...record, used_hours: record.used_hours + hours }
-            : record
-        )
-      );
-
-      // Refresh requests
-      await fetchVacationRequests();
     } catch (error) {
       console.error('Error approving request:', error);
     }
@@ -134,17 +85,10 @@ const VacationManagement: React.FC = () => {
 
   const handleDenyRequest = async (requestId: string, employeeId: string) => {
     try {
-      const requestsKey = `vacation_requests_${employeeId}`;
-      const savedRequests = localStorage.getItem(requestsKey);
-      if (savedRequests) {
-        const requests = JSON.parse(savedRequests);
-        const updatedRequests = requests.map((req: VacationRequest) =>
-          req.id === requestId ? { ...req, status: 'denied' } : req
-        );
-        localStorage.setItem(requestsKey, JSON.stringify(updatedRequests));
+      const response = await denyVacation(requestId);
+      if (response.success) {
+        await fetchVacationRequests();
       }
-
-      await fetchVacationRequests();
     } catch (error) {
       console.error('Error denying request:', error);
     }
@@ -206,16 +150,14 @@ const VacationManagement: React.FC = () => {
 
   const saveChanges = async (employeeId: string) => {
     try {
-      // In demo mode, just update local state
-      setVacationRecords(prev => 
-        prev.map(record => 
-          record.employee_id === employeeId 
-            ? { ...record, ...editValues }
-            : record
-        )
-      );
-
-      setEditingId(null);
+      const response = await updateEmployee({
+        id: employeeId,
+        vacation_days_total: Math.round(editValues.allotted_hours / 8),
+      });
+      if (response.success) {
+        await fetchVacationRecords();
+        setEditingId(null);
+      }
     } catch (error) {
       console.error('Error saving vacation data:', error);
     }
@@ -248,11 +190,6 @@ const VacationManagement: React.FC = () => {
         <h2 className="text-2xl font-bold text-gray-900">Vacation Management</h2>
       </div>
 
-      <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <p className="text-sm text-yellow-800">
-          <strong>Demo Mode:</strong> Changes are temporary and will reset on page refresh.
-        </p>
-      </div>
 
       <div className="mb-6">
         <nav className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
