@@ -104,6 +104,31 @@ export async function clockOut(breakDuration?: number) {
   return response;
 }
 
+export async function getEmployees() {
+  const response = await fetchAPI<any>('/api/admin/employees', 'GET');
+  return response;
+}
+
+export async function getEmployee(id: string) {
+  const response = await fetchAPI<any>(`/api/admin/employees?id=${id}`, 'GET');
+  return response;
+}
+
+export async function createEmployee(employeeData: any) {
+  const response = await fetchAPI<any>('/api/admin/employees', 'POST', employeeData);
+  return response;
+}
+
+export async function updateEmployee(employeeData: any) {
+  const response = await fetchAPI<any>('/api/admin/employees', 'PUT', employeeData);
+  return response;
+}
+
+export async function deleteEmployee(id: string) {
+  const response = await fetchAPI<any>('/api/admin/employees', 'DELETE', { id });
+  return response;
+}
+
 export const api = {
   setToken,
   login,
@@ -112,4 +137,9 @@ export const api = {
   getTodayTimeEntries,
   clockIn,
   clockOut,
+  getEmployees,
+  getEmployee,
+  createEmployee,
+  updateEmployee,
+  deleteEmployee,
 };

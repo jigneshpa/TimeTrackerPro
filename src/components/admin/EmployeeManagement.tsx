@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Users, Plus, Edit, Trash2, Save } from 'lucide-react';
+import { getEmployees, updateEmployee, deleteEmployee } from '../../lib/api';
 
 interface Employee {
   id: string;
@@ -7,58 +8,16 @@ interface Employee {
   last_name: string;
   email: string;
   role: 'employee' | 'admin';
+  employee_number?: string;
+  phone?: string;
+  hire_date?: string;
+  is_active?: boolean;
+  vacation_days_total?: number;
+  vacation_days_used?: number;
+  vacation_days_remaining?: number;
   created_at: string;
-  shift_start_time?: string;
-  shift_end_time?: string;
-  pay_start_buffer?: number;
-  pay_end_buffer?: number;
-  vacation_allotment_hours?: number;
-  vacation_eligible?: boolean;
-  vacation_start_days?: number;
+  updated_at?: string;
 }
-
-// Mock employees for demo
-const mockEmployees: Employee[] = [
-  {
-    id: '1',
-    first_name: 'John',
-    last_name: 'Doe',
-    email: 'john@demo.com',
-    role: 'employee',
-    created_at: '2024-01-01T00:00:00Z',
-    shift_start_time: '08:00',
-    shift_end_time: '17:00',
-    vacation_allotment_hours: 80,
-    vacation_eligible: true,
-    vacation_start_days: 90,
-  },
-  {
-    id: '2',
-    first_name: 'Admin',
-    last_name: 'User',
-    email: 'admin@demo.com',
-    role: 'admin',
-    created_at: '2024-01-01T00:00:00Z',
-    shift_start_time: '09:00',
-    shift_end_time: '18:00',
-    vacation_allotment_hours: 120,
-    vacation_eligible: true,
-    vacation_start_days: 30,
-  },
-  {
-    id: '3',
-    first_name: 'Jane',
-    last_name: 'Smith',
-    email: 'jane@demo.com',
-    role: 'employee',
-    created_at: '2024-01-15T00:00:00Z',
-    shift_start_time: '07:00',
-    shift_end_time: '16:00',
-    vacation_allotment_hours: 0,
-    vacation_eligible: false,
-    vacation_start_days: 0,
-  }
-];
 
 const EmployeeManagement: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -67,6 +26,7 @@ const EmployeeManagement: React.FC = () => {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [showEditForm, setShowEditForm] = useState(false);
   const [editFormData, setEditFormData] = useState<Partial<Employee>>({});
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchEmployees();
@@ -74,10 +34,16 @@ const EmployeeManagement: React.FC = () => {
 
   const fetchEmployees = async () => {
     try {
-      // Use mock data for demo
-      setEmployees(mockEmployees);
-    } catch (error) {
+      setError(null);
+      const response = await getEmployees();
+      if (response.success && response.data) {
+        setEmployees(response.data);
+      } else {
+        setError(response.message || 'Failed to fetch employees');
+      }
+    } catch (error: any) {
       console.error('Error fetching employees:', error);
+      setError(error.message || 'Failed to fetch employees');
     } finally {
       setLoading(false);
     }
@@ -91,19 +57,37 @@ const EmployeeManagement: React.FC = () => {
 
   const handleSaveEmployee = async () => {
     try {
-      // In demo mode, just update local state
-      setEmployees(prev => 
-        prev.map(emp => 
-          emp.id === editingEmployee?.id 
-            ? { ...emp, ...editFormData }
-            : emp
-        )
-      );
-      setShowEditForm(false);
-      setEditingEmployee(null);
-      setEditFormData({});
-    } catch (error) {
+      setError(null);
+      const response = await updateEmployee(editFormData);
+      if (response.success) {
+        await fetchEmployees();
+        setShowEditForm(false);
+        setEditingEmployee(null);
+        setEditFormData({});
+      } else {
+        setError(response.message || 'Failed to update employee');
+      }
+    } catch (error: any) {
       console.error('Error saving employee:', error);
+      setError(error.message || 'Failed to update employee');
+    }
+  };
+
+  const handleDeleteEmployee = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this employee?')) {
+      return;
+    }
+    try {
+      setError(null);
+      const response = await deleteEmployee(id);
+      if (response.success) {
+        await fetchEmployees();
+      } else {
+        setError(response.message || 'Failed to delete employee');
+      }
+    } catch (error: any) {
+      console.error('Error deleting employee:', error);
+      setError(error.message || 'Failed to delete employee');
     }
   };
 
@@ -154,9 +138,9 @@ const EmployeeManagement: React.FC = () => {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee Time Clock Code</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee Number</label>
                   <div className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-gray-900">
-                    {editingEmployee.id.padStart(4, '0')}
+                    {editingEmployee.employee_number || 'Not set'}
                   </div>
                 </div>
                 <div>
@@ -177,79 +161,33 @@ const EmployeeManagement: React.FC = () => {
             {/* Editable Vacation Settings */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
               <h4 className="text-sm font-semibold text-blue-900 mb-4">Vacation Settings</h4>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Vacation Eligible
+                    Vacation Days (Annual)
                   </label>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={editFormData.vacation_eligible || false}
-                      onChange={(e) => setEditFormData(prev => ({ 
-                        ...prev, 
-                        vacation_eligible: e.target.checked,
-                        vacation_allotment_hours: e.target.checked ? (prev.vacation_allotment_hours || 80) : 0,
-                        vacation_start_days: e.target.checked ? (prev.vacation_start_days || 90) : 0
-                      }))}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">Enable vacation</span>
-                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="365"
+                    value={editFormData.vacation_days_total || 0}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, vacation_days_total: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Vacation Hours (Annual)
+                    Status
                   </label>
                   <select
-                    value={editFormData.vacation_allotment_hours || 0}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, vacation_allotment_hours: Number(e.target.value) }))}
-                    disabled={!editFormData.vacation_eligible}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
+                    value={editFormData.is_active ? '1' : '0'}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, is_active: e.target.value === '1' }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value={0}>0 hours</option>
-                    <option value={8}>8 hours</option>
-                    <option value={16}>16 hours</option>
-                    <option value={24}>24 hours</option>
-                    <option value={32}>32 hours</option>
-                    <option value={40}>40 hours</option>
-                    <option value={48}>48 hours</option>
-                    <option value={56}>56 hours</option>
-                    <option value={64}>64 hours</option>
-                    <option value={72}>72 hours</option>
-                    <option value={80}>80 hours</option>
-                    <option value={88}>88 hours</option>
-                    <option value={96}>96 hours</option>
-                    <option value={104}>104 hours</option>
-                    <option value={112}>112 hours</option>
-                    <option value={120}>120 hours</option>
-                    <option value={128}>128 hours</option>
-                    <option value={136}>136 hours</option>
-                    <option value={144}>144 hours</option>
-                    <option value={152}>152 hours</option>
-                    <option value={160}>160 hours</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Vacation Start
-                  </label>
-                  <select
-                    value={editFormData.vacation_start_days || 90}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, vacation_start_days: Number(e.target.value) }))}
-                    disabled={!editFormData.vacation_eligible}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
-                  >
-                    <option value={0}>Immediate</option>
-                    <option value={30}>30 days</option>
-                    <option value={60}>60 days</option>
-                    <option value={90}>90 days</option>
-                    <option value={120}>120 days</option>
-                    <option value={180}>180 days</option>
-                    <option value={365}>1 year</option>
+                    <option value="1">Active</option>
+                    <option value="0">Inactive</option>
                   </select>
                 </div>
               </div>
@@ -288,11 +226,13 @@ const EmployeeManagement: React.FC = () => {
         </button>
       </div>
 
-      <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <p className="text-sm text-yellow-800">
-          <strong>Demo Mode:</strong> This is showing mock employee data. In a real system, this would connect to your database.
-        </p>
-      </div>
+      {error && (
+        <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-sm text-red-800">
+            <strong>Error:</strong> {error}
+          </p>
+        </div>
+      )}
 
       <div className="bg-gray-50 rounded-lg p-4">
         <div className="overflow-x-auto">
@@ -302,7 +242,7 @@ const EmployeeManagement: React.FC = () => {
                 <th className="text-left py-3 px-4 font-medium text-gray-900">Name</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-900">Email</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-900">Role</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-900">Shift Hours</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-900">Employee Number</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-900">Vacation</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-900">Actions</th>
               </tr>
@@ -315,7 +255,7 @@ const EmployeeManagement: React.FC = () => {
                       <p className="font-medium text-gray-900">
                         {employee.first_name} {employee.last_name}
                       </p>
-                      <p className="text-sm text-gray-500">ID: {employee.id.slice(0, 8)}...</p>
+                      <p className="text-sm text-gray-500">ID: {employee.id}...</p>
                     </div>
                   </td>
                   <td className="py-3 px-4 text-gray-600">{employee.email}</td>
@@ -323,7 +263,7 @@ const EmployeeManagement: React.FC = () => {
                     <span
                       className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                         employee.role === 'admin'
-                          ? 'bg-purple-100 text-purple-800'
+                          ? 'bg-red-100 text-red-800'
                           : 'bg-blue-100 text-blue-800'
                       }`}
                     >
@@ -331,22 +271,22 @@ const EmployeeManagement: React.FC = () => {
                     </span>
                   </td>
                   <td className="py-3 px-4 text-gray-600">
-                    {employee.shift_start_time && employee.shift_end_time
-                      ? `${employee.shift_start_time} - ${employee.shift_end_time}`
-                      : 'Not set'}
+                    {employee.employee_number || 'Not set'}
                   </td>
                   <td className="py-3 px-4">
-                    {employee.vacation_eligible ? (
+                    {(employee.vacation_days_total || 0) > 0 ? (
                       <div>
                         <span className="text-green-600 font-medium">
-                          {employee.vacation_allotment_hours || 0} hrs/year
+                          {employee.vacation_days_remaining || 0} days remaining
                         </span>
-                        <div className="text-xs text-gray-500">Eligible</div>
+                        <div className="text-xs text-gray-500">
+                          {employee.vacation_days_used || 0} / {employee.vacation_days_total || 0} used
+                        </div>
                       </div>
                     ) : (
                       <div>
                         <span className="text-gray-400">Not eligible</span>
-                        <div className="text-xs text-gray-500">0 hrs/year</div>
+                        <div className="text-xs text-gray-500">0 days/year</div>
                       </div>
                     )}
                   </td>
@@ -355,10 +295,15 @@ const EmployeeManagement: React.FC = () => {
                       <button
                         onClick={() => handleEditEmployee(employee)}
                         className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                        title="Edit Employee"
                       >
                         <Edit className="h-4 w-4" />
                       </button>
-                      <button className="p-1 text-red-600 hover:bg-red-50 rounded">
+                      <button
+                        onClick={() => handleDeleteEmployee(employee.id)}
+                        className="p-1 text-red-600 hover:bg-red-50 rounded"
+                        title="Delete Employee"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
