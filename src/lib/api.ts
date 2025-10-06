@@ -35,8 +35,10 @@ async function fetchAPI<T>(
 
   const token = getToken();
   console.log('fetchAPI - endpoint:', endpoint, 'token:', token ? 'TOKEN_EXISTS' : 'NULL');
+  console.log('Full token:', token);
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+    console.log('Authorization header set:', headers['Authorization']);
   }
 
   const url = `${API_BASE}?endpoint=${encodeURIComponent(endpoint)}`;
@@ -51,10 +53,13 @@ async function fetchAPI<T>(
     options.body = JSON.stringify(body);
   }
 
+  console.log('Request headers:', headers);
+
   const response = await fetch(url, options);
   const data = await response.json();
 
   if (!response.ok) {
+    console.error('Response error:', response.status, data);
     throw new Error(data.message || 'An error occurred');
   }
 
