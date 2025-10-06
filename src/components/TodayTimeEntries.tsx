@@ -16,7 +16,7 @@ const TodayTimeEntries: React.FC = () => {
         return <Coffee className="h-4 w-4 text-orange-600" />;
       case 'unpaid_out':
       case 'unpaid_in':
-        return <Pause className="h-4 w-4 text-purple-600" />;
+        return <Pause className="h-4 w-4 text-blue-600" />;
       default:
         return <Clock className="h-4 w-4 text-gray-600" />;
     }
@@ -45,7 +45,7 @@ const TodayTimeEntries: React.FC = () => {
         return 'bg-orange-50 border-orange-200';
       case 'unpaid_out':
       case 'unpaid_in':
-        return 'bg-purple-50 border-purple-200';
+        return 'bg-blue-50 border-blue-200';
       default:
         return 'bg-gray-50 border-gray-200';
     }

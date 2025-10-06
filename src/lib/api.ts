@@ -104,6 +104,36 @@ export async function clockOut(breakDuration?: number) {
   return response;
 }
 
+export async function createTimeEntryEvent(entryType: string, notes?: string) {
+  const response = await fetchAPI<any>(
+    '/api/timeclock/events',
+    'POST',
+    { entry_type: entryType, notes }
+  );
+  return response;
+}
+
+export async function getTodayTimeEvents() {
+  const response = await fetchAPI<any>('/api/timeclock/events/today', 'GET');
+  return response;
+}
+
+export async function getTimeEvents(startDate?: string, endDate?: string) {
+  let endpoint = '/api/timeclock/events';
+  const params = new URLSearchParams();
+  if (startDate) params.append('start_date', startDate);
+  if (endDate) params.append('end_date', endDate);
+  if (params.toString()) endpoint += `?${params.toString()}`;
+
+  const response = await fetchAPI<any>(endpoint, 'GET');
+  return response;
+}
+
+export async function getCurrentStatus() {
+  const response = await fetchAPI<any>('/api/timeclock/status', 'GET');
+  return response;
+}
+
 export async function getEmployees() {
   const response = await fetchAPI<any>('/api/admin/employees', 'GET');
   return response;

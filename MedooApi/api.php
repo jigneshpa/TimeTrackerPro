@@ -17,6 +17,7 @@ require_once __DIR__ . '/functions/db.php';
 require_once __DIR__ . '/functions/jwt.php';
 require_once __DIR__ . '/functions/auth.php';
 require_once __DIR__ . '/functions/timeclock.php';
+require_once __DIR__ . '/functions/timeentry-events.php';
 require_once __DIR__ . '/functions/vacation.php';
 require_once __DIR__ . '/functions/admin.php';
 
@@ -56,6 +57,14 @@ try {
         handle_get_entries();
     } elseif ($path === '/api/timeclock/entries' && $method === 'PUT') {
         handle_update_entry();
+    } elseif ($path === '/api/timeclock/events' && $method === 'POST') {
+        handle_create_time_entry_event();
+    } elseif ($path === '/api/timeclock/events/today' && $method === 'GET') {
+        handle_get_today_time_events();
+    } elseif ($path === '/api/timeclock/events' && $method === 'GET') {
+        handle_get_time_events();
+    } elseif ($path === '/api/timeclock/status' && $method === 'GET') {
+        handle_get_current_status();
     } elseif ($path === '/api/vacation/balance' && $method === 'GET') {
         handle_get_vacation_balance();
     } elseif ($path === '/api/vacation/requests' && $method === 'GET') {
