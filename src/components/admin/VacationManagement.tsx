@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Edit, Save, X, Check, AlertCircle } from 'lucide-react';
+import { Calendar, CreditCard as Edit, Save, X, Check, AlertCircle } from 'lucide-react';
 import { getEmployees, getAllVacationRequests, approveVacation, denyVacation, updateEmployee } from '../../lib/api';
 
 interface VacationRecord {

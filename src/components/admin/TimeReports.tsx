@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Calendar, Download, Edit, Plus, Save, X, Trash2, ChevronDown, Eye } from 'lucide-react';
+import { Clock, Calendar, Download, CreditCard as Edit, Plus, Save, X, Trash2, ChevronDown, Eye } from 'lucide-react';
 
 interface TimeEntry {
   id: string;
