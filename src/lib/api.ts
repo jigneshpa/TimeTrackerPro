@@ -8,11 +8,16 @@ interface ApiResponse<T = any> {
 }
 
 export function setToken(token: string | null) {
+  console.log('setToken called with:', token ? 'TOKEN_EXISTS' : 'NULL');
   if (token) {
     localStorage.setItem('auth_token', token);
+    console.log('Token stored in localStorage');
   } else {
     localStorage.removeItem('auth_token');
+    console.log('Token removed from localStorage');
   }
+  const stored = localStorage.getItem('auth_token');
+  console.log('Token verification - stored:', stored ? 'TOKEN_EXISTS' : 'NULL');
 }
 
 function getToken(): string | null {
@@ -29,6 +34,7 @@ async function fetchAPI<T>(
   };
 
   const token = getToken();
+  console.log('fetchAPI - endpoint:', endpoint, 'token:', token ? 'TOKEN_EXISTS' : 'NULL');
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
