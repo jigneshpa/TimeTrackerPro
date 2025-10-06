@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, MapPin, Edit, Save, X, Plus, Copy, Trash2, Users } from 'lucide-react';
+import { getEmployees, getWorkSchedules, saveWorkSchedule } from '../../lib/api';
 
 interface ScheduleTemplate {
   id: string;
@@ -26,12 +27,6 @@ interface Employee {
   role: 'employee' | 'admin';
 }
 
-// Mock data for demo
-const mockEmployees: Employee[] = [
-  { id: '2', name: 'Admin User', primary_store: 'Main Store', role: 'admin' },
-  { id: '1', name: 'John Doe', primary_store: 'Main Store', role: 'employee' },
-  { id: '3', name: 'Jane Smith', primary_store: 'North Branch', role: 'employee' },
-];
 
 const storeLocations = [
   'Main Store',
@@ -63,6 +58,7 @@ const scheduleTemplates: ScheduleTemplate[] = [
 ];
 
 const WorkSchedule: React.FC = () => {
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [selectedWeek, setSelectedWeek] = useState<string>('');
   const [workDays, setWorkDays] = useState<{ [employeeId: string]: WorkDay[] }>({});
@@ -85,7 +81,7 @@ const WorkSchedule: React.FC = () => {
   });
 
   // Sort employees by role (admin first) then alphabetically
-  const filteredAndSortedEmployees = [...mockEmployees]
+  const filteredAndSortedEmployees = [...employees]
     .filter(emp => {
       const roleMatch = roleFilters[emp.role];
       const storeMatch = storeFilters[emp.primary_store];
@@ -99,22 +95,43 @@ const WorkSchedule: React.FC = () => {
   });
 
   useEffect(() => {
+    fetchEmployees();
     // Set current week as default (find the Sunday of current week)
     const today = new Date();
     const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
     const sunday = new Date(today);
     sunday.setDate(today.getDate() - currentDay); // Go back to Sunday of current week
     setSelectedWeek(sunday.toISOString().split('T')[0]);
-    
-    // Pre-check all employees by default
-    setSelectedEmployees(mockEmployees.map(emp => emp.id));
   }, []);
+
+  useEffect(() => {
+    if (employees.length > 0) {
+      setSelectedEmployees(employees.map(emp => emp.id));
+    }
+  }, [employees]);
 
   useEffect(() => {
     if (selectedEmployees.length > 0 && selectedWeek) {
       fetchWorkSchedule();
     }
   }, [selectedEmployees, selectedWeek]);
+
+  const fetchEmployees = async () => {
+    try {
+      const response = await getEmployees();
+      if (response.success && response.data) {
+        const employeeList: Employee[] = response.data.map((emp: any) => ({
+          id: emp.id,
+          name: `${emp.first_name} ${emp.last_name}`,
+          primary_store: emp.primary_location || 'Main Store',
+          role: emp.role as 'employee' | 'admin'
+        }));
+        setEmployees(employeeList);
+      }
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+    }
+  };
 
   const fetchWorkSchedule = async () => {
     setLoading(true);
@@ -128,13 +145,18 @@ const WorkSchedule: React.FC = () => {
       const dailyShifts = settings?.daily_shifts || {};
       
       for (const employeeId of selectedEmployees) {
-        // Get saved schedule from localStorage
-        const scheduleKey = `work_schedule_${employeeId}_${selectedWeek}`;
-        const savedSchedule = localStorage.getItem(scheduleKey);
-        const existingSchedule = savedSchedule ? JSON.parse(savedSchedule) : {};
+        // Fetch schedule from database
+        const response = await getWorkSchedules(employeeId);
+        const existingSchedule: { [date: string]: any } = {};
+
+        if (response.success && response.data) {
+          response.data.forEach((schedule: any) => {
+            existingSchedule[schedule.work_date] = schedule;
+          });
+        }
 
         // Get employee data
-        const employee = mockEmployees.find(emp => emp.id === employeeId);
+        const employee = employees.find(emp => emp.id === employeeId);
         
         const weekDays: WorkDay[] = [];
         
@@ -189,20 +211,26 @@ const WorkSchedule: React.FC = () => {
     return Math.max(0, hours);
   };
 
-  const saveWorkSchedule = async () => {
+  const saveWorkScheduleToDb = async () => {
     if (selectedEmployees.length === 0 || !selectedWeek) return;
-    
+
     try {
       for (const employeeId of selectedEmployees) {
-        const scheduleKey = `work_schedule_${employeeId}_${selectedWeek}`;
-        const scheduleData: { [date: string]: WorkDay } = {};
-        
         const employeeWorkDays = workDays[employeeId] || [];
-        employeeWorkDays.forEach(day => {
-          scheduleData[day.date] = day;
-        });
-        
-        localStorage.setItem(scheduleKey, JSON.stringify(scheduleData));
+
+        for (const day of employeeWorkDays) {
+          const scheduleData = {
+            employee_id: employeeId,
+            work_date: day.date,
+            start_time: day.start_time,
+            end_time: day.end_time,
+            store_location: day.store_location,
+            is_scheduled: day.is_scheduled,
+            notes: day.notes || ''
+          };
+
+          await saveWorkSchedule(scheduleData);
+        }
       }
     } catch (error) {
       console.error('Error saving work schedule:', error);
@@ -223,16 +251,16 @@ const WorkSchedule: React.FC = () => {
     const updatedWorkDays: { [employeeId: string]: WorkDay[] } = {};
     
     for (const employeeId of selectedEmployees) {
-      const employee = mockEmployees.find(emp => emp.id === employeeId);
+      const employee = employees.find(emp => emp.id === employeeId);
       const employeeWorkDays = workDays[employeeId] || [];
       
       const updatedEmployeeWorkDays = employeeWorkDays.map(day => {
         const date = new Date(day.date);
         const dayName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getDay()];
         const dayShift = dailyShifts[dayName] || { start: '08:00', end: '17:00', enabled: true };
-        
+
         let newDay = { ...day };
-        
+
         switch (template.type) {
           case 'every_day_full':
             newDay.is_scheduled = true;
@@ -240,7 +268,7 @@ const WorkSchedule: React.FC = () => {
             newDay.end_time = dayShift.end;
             newDay.hours = calculateHours(dayShift.start, dayShift.end);
             break;
-            
+
           case 'every_day_8hours':
             newDay.is_scheduled = true;
             newDay.start_time = dayShift.start;
@@ -251,7 +279,7 @@ const WorkSchedule: React.FC = () => {
             newDay.end_time = endTime.toTimeString().substring(0, 5);
             newDay.hours = 8;
             break;
-            
+
           case 'weekdays_only':
             const isWeekday = date.getDay() >= 1 && date.getDay() <= 5;
             newDay.is_scheduled = isWeekday;
@@ -262,10 +290,11 @@ const WorkSchedule: React.FC = () => {
             }
             break;
         }
-        
+
         // Reset store to primary
-        newDay.store_location = employee?.primary_store || 'Main Store';
-        
+        const emp = employees.find(e => e.id === employeeId);
+        newDay.store_location = emp?.primary_store || 'Main Store';
+
         return newDay;
       });
       
@@ -278,7 +307,7 @@ const WorkSchedule: React.FC = () => {
     
     // Auto-save after applying template
     setTimeout(() => {
-      saveWorkSchedule();
+      saveWorkScheduleToDb();
     }, 100);
   };
 
@@ -309,10 +338,10 @@ const WorkSchedule: React.FC = () => {
     setWorkDays(updatedWorkDays);
     setEditingCell(null);
     setEditValues({});
-    
+
     // Auto-save
     setTimeout(() => {
-      saveWorkSchedule();
+      saveWorkScheduleToDb();
     }, 100);
   };
 
@@ -331,10 +360,10 @@ const WorkSchedule: React.FC = () => {
     });
     
     setWorkDays(updatedWorkDays);
-    
+
     // Auto-save
     setTimeout(() => {
-      saveWorkSchedule();
+      saveWorkScheduleToDb();
     }, 100);
   };
 
@@ -356,9 +385,9 @@ const WorkSchedule: React.FC = () => {
       }
       
       setWorkDays(clearedWorkDays);
-      
+
       setTimeout(() => {
-        saveWorkSchedule();
+        saveWorkScheduleToDb();
       }, 100);
     }
   };
@@ -376,7 +405,7 @@ const WorkSchedule: React.FC = () => {
     
     // Update selected employees based on new filters
     const newRoleFilters = { ...roleFilters, [role]: checked };
-    const filteredEmployees = mockEmployees.filter(emp => {
+    const filteredEmployees = employees.filter(emp => {
       const roleMatch = newRoleFilters[emp.role];
       const storeMatch = storeFilters[emp.primary_store];
       return roleMatch && storeMatch;
@@ -389,7 +418,7 @@ const WorkSchedule: React.FC = () => {
     
     // Update selected employees based on new filters
     const newStoreFilters = { ...storeFilters, [store]: checked };
-    const filteredEmployees = mockEmployees.filter(emp => {
+    const filteredEmployees = employees.filter(emp => {
       const roleMatch = roleFilters[emp.role];
       const storeMatch = newStoreFilters[emp.primary_store];
       return roleMatch && storeMatch;
@@ -853,7 +882,7 @@ const WorkSchedule: React.FC = () => {
           
           <div className="p-6 border-t">
             <button
-              onClick={saveWorkSchedule}
+              onClick={saveWorkScheduleToDb}
               className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
             >
               <Save className="h-4 w-4" />
