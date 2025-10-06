@@ -70,18 +70,57 @@ const TimeClockCard: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Clock In/Out */}
-        <div className="space-y-2">
-          {currentStatus === 'clocked_out' ? (
-            <button
-              onClick={clockIn}
-              className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center space-x-2"
-            >
-              <Play className="h-4 w-4" />
-              <span>Clock In</span>
-            </button>
-          ) : (
+        {currentStatus === 'clocked_out' ? (
+          <button
+            onClick={clockIn}
+            className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center space-x-2"
+          >
+            <Play className="h-4 w-4" />
+            <span>Clock In</span>
+          </button>
+        ) : (
+          <>
+            {/* Lunch - Only show when clocked in */}
+            {!isOnLunch ? (
+              <button
+                onClick={startLunch}
+                className="w-full bg-orange-600 text-white py-3 px-4 rounded-lg hover:bg-orange-700 transition-colors font-medium flex items-center justify-center space-x-2"
+              >
+                <Coffee className="h-4 w-4" />
+                <span>Start Lunch</span>
+              </button>
+            ) : (
+              <button
+                onClick={endLunch}
+                className="w-full bg-orange-600 text-white py-3 px-4 rounded-lg hover:bg-orange-700 transition-colors font-medium flex items-center justify-center space-x-2"
+              >
+                <Coffee className="h-4 w-4" />
+                <span>End Lunch</span>
+              </button>
+            )}
+
+            {/* Unpaid Time - Only show when clocked in */}
+            {!isOnUnpaidBreak ? (
+              <button
+                onClick={startUnpaidTime}
+                className="w-full bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center justify-center space-x-2"
+              >
+                <Pause className="h-4 w-4" />
+                <span>Start Unpaid</span>
+              </button>
+            ) : (
+              <button
+                onClick={endUnpaidTime}
+                className="w-full bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center justify-center space-x-2"
+              >
+                <Pause className="h-4 w-4" />
+                <span>End Unpaid</span>
+              </button>
+            )}
+
+            {/* Clock Out */}
             <button
               onClick={clockOut}
               className="w-full bg-red-600 text-white py-3 px-4 rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center justify-center space-x-2"
@@ -90,52 +129,8 @@ const TimeClockCard: React.FC = () => {
               <StopCircle className="h-4 w-4" />
               <span>Clock Out</span>
             </button>
-          )}
-        </div>
-
-        {/* Lunch */}
-        <div className="space-y-2">
-          {!isOnLunch ? (
-            <button
-              onClick={startLunch}
-              className="w-full bg-orange-600 text-white py-3 px-4 rounded-lg hover:bg-orange-700 transition-colors font-medium flex items-center justify-center space-x-2"
-              disabled={currentStatus !== 'clocked_in'}
-            >
-              <Coffee className="h-4 w-4" />
-              <span>Start Lunch</span>
-            </button>
-          ) : (
-            <button
-              onClick={endLunch}
-              className="w-full bg-orange-600 text-white py-3 px-4 rounded-lg hover:bg-orange-700 transition-colors font-medium flex items-center justify-center space-x-2"
-            >
-              <Coffee className="h-4 w-4" />
-              <span>End Lunch</span>
-            </button>
-          )}
-        </div>
-
-        {/* Unpaid Time */}
-        <div className="space-y-2">
-          {!isOnUnpaidBreak ? (
-            <button
-              onClick={startUnpaidTime}
-              className="w-full bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center justify-center space-x-2"
-              disabled={currentStatus !== 'clocked_in'}
-            >
-              <Pause className="h-4 w-4" />
-              <span>Start Unpaid</span>
-            </button>
-          ) : (
-            <button
-              onClick={endUnpaidTime}
-              className="w-full bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center justify-center space-x-2"
-            >
-              <Pause className="h-4 w-4" />
-              <span>End Unpaid</span>
-            </button>
-          )}
-        </div>
+          </>
+        )}
       </div>
 
       <div className="mt-4 text-xs text-gray-500 space-y-1">
