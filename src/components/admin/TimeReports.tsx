@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Calendar, Download, CreditCard as Edit, Plus, Save, X, Trash2, ChevronDown, Eye } from 'lucide-react';
-import { getEmployees, getAllTimeEntries } from '../../lib/api';
+import { Clock, Calendar, Download, ChevronDown } from 'lucide-react';
+import { getTimeReports } from '../../lib/api';
 
 interface TimeEntry {
   id: string;
@@ -115,44 +115,16 @@ const TimeReports: React.FC = () => {
 
     setLoading(true);
     try {
-      // Fetch employees from database
-      const employeesResponse = await getEmployees();
-      if (!employeesResponse.success || !employeesResponse.data) {
-        setReportData([]);
-        setLoading(false);
-        return;
-      }
-
-      // Fetch time entries for the pay period
-      const entriesResponse = await getAllTimeEntries(
+      const response = await getTimeReports(
         selectedPayPeriod.start_date,
         selectedPayPeriod.end_date
       );
 
-      const allEntries = entriesResponse.success && entriesResponse.data ? entriesResponse.data : [];
-
-      // Calculate report data for each employee
-      const reportData: TimeReportData[] = [];
-
-      for (const employee of employeesResponse.data) {
-        // Filter entries for this employee
-        const employeeEntries = allEntries.filter((entry: any) => entry.employee_id == employee.id);
-
-        const hours = calculateEmployeeHours(employeeEntries);
-        const vacationHours = 0; // TODO: Calculate from vacation requests
-
-        reportData.push({
-          employee_name: `${employee.first_name} ${employee.last_name}`,
-          employee_id: employee.id,
-          total_hours: hours.total,
-          lunch_hours: hours.lunch,
-          unpaid_hours: hours.unpaid,
-          paid_hours: hours.paid,
-          vacation_hours: vacationHours,
-        });
+      if (response.success && response.data) {
+        setReportData(response.data);
+      } else {
+        setReportData([]);
       }
-
-      setReportData(reportData);
     } catch (error) {
       console.error('Error fetching time reports:', error);
       setReportData([]);
@@ -518,6 +490,57 @@ const TimeReports: React.FC = () => {
     };
   };
 
+  const handleExportCSV = () => {
+    if (!reportData.length || !selectedPayPeriod) {
+      alert('No data to export');
+      return;
+    }
+
+    const headers = [
+      'Employee',
+      'Employee Number',
+      'Total Hours',
+      'Lunch Hours',
+      'Unpaid Hours',
+      'Paid Hours',
+      'Vacation Hours'
+    ];
+
+    const rows = reportData.map(report => [
+      report.employee_name,
+      report.employee_number || '',
+      report.total_hours.toFixed(2),
+      report.lunch_hours.toFixed(2),
+      report.unpaid_hours.toFixed(2),
+      report.paid_hours.toFixed(2),
+      report.vacation_hours.toFixed(2)
+    ]);
+
+    const csvContent = [
+      [`Time Report - ${selectedPayPeriod.label}`],
+      [],
+      headers,
+      ...rows,
+      [],
+      ['Summary'],
+      ['Total Employees', reportData.length],
+      ['Total Paid Hours', reportData.reduce((sum, r) => sum + r.paid_hours, 0).toFixed(2)],
+      ['Total Vacation Hours', reportData.reduce((sum, r) => sum + r.vacation_hours, 0).toFixed(2)]
+    ]
+      .map(row => row.join(','))
+      .join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `time-report-${selectedPayPeriod.start_date}-${selectedPayPeriod.end_date}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   if (showDailyBreakdown) {
     const employee = reportData.find(r => r.employee_id === showDailyBreakdown);
     
@@ -833,7 +856,11 @@ const TimeReports: React.FC = () => {
           <Clock className="h-6 w-6 text-gray-600" />
           <h2 className="text-2xl font-bold text-gray-900">Time Reports</h2>
         </div>
-        <button className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+        <button
+          onClick={handleExportCSV}
+          disabled={reportData.length === 0}
+          className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           <Download className="h-4 w-4" />
           <span>Export CSV</span>
         </button>

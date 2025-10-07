@@ -87,6 +87,8 @@ try {
         handle_delete_employee();
     } elseif ($path === '/api/admin/time-entries' && $method === 'GET') {
         handle_get_all_time_entries();
+    } elseif ($path === '/api/admin/time-reports' && $method === 'GET') {
+        handle_get_time_reports();
     } elseif ($path === '/api/admin/vacation-requests' && $method === 'GET') {
         handle_get_all_vacation_requests();
     } elseif ($path === '/api/admin/vacation-requests/approve' && $method === 'POST') {

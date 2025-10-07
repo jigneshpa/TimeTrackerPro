@@ -1,5 +1,110 @@
 <?php
 
+function handle_get_time_reports() {
+    require_admin();
+
+    $startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+    $endDate = $_GET['end_date'] ?? date('Y-m-d');
+
+    $db = get_db_connection();
+
+    $employees = $db->select('employees_timetrackpro', '*', [
+        'is_active' => true,
+        'ORDER' => ['first_name' => 'ASC']
+    ]);
+
+    $reports = [];
+
+    foreach ($employees as $emp) {
+        $events = $db->select('time_entry_events_timetrackpro', '*', [
+            'employee_id' => $emp['id'],
+            'timestamp[>=]' => $startDate . ' 00:00:00',
+            'timestamp[<=]' => $endDate . ' 23:59:59',
+            'ORDER' => ['timestamp' => 'ASC']
+        ]);
+
+        $totalMinutes = 0;
+        $lunchMinutes = 0;
+        $unpaidMinutes = 0;
+
+        $currentClockIn = null;
+        $currentLunchOut = null;
+        $currentUnpaidOut = null;
+
+        foreach ($events as $event) {
+            $timestamp = strtotime($event['timestamp']);
+
+            switch ($event['entry_type']) {
+                case 'clock_in':
+                    $currentClockIn = $timestamp;
+                    break;
+
+                case 'clock_out':
+                    if ($currentClockIn) {
+                        $minutes = ($timestamp - $currentClockIn) / 60;
+                        $totalMinutes += $minutes;
+                        $currentClockIn = null;
+                    }
+                    break;
+
+                case 'lunch_out':
+                    $currentLunchOut = $timestamp;
+                    break;
+
+                case 'lunch_in':
+                    if ($currentLunchOut) {
+                        $minutes = ($timestamp - $currentLunchOut) / 60;
+                        $lunchMinutes += $minutes;
+                        $currentLunchOut = null;
+                    }
+                    break;
+
+                case 'unpaid_out':
+                    $currentUnpaidOut = $timestamp;
+                    break;
+
+                case 'unpaid_in':
+                    if ($currentUnpaidOut) {
+                        $minutes = ($timestamp - $currentUnpaidOut) / 60;
+                        $unpaidMinutes += $minutes;
+                        $currentUnpaidOut = null;
+                    }
+                    break;
+            }
+        }
+
+        $totalHours = round($totalMinutes / 60, 2);
+        $lunchHours = round($lunchMinutes / 60, 2);
+        $unpaidHours = round($unpaidMinutes / 60, 2);
+        $paidHours = round(($totalMinutes - $lunchMinutes - $unpaidMinutes) / 60, 2);
+
+        $vacationRequests = $db->select('vacation_requests_timetrackpro', '*', [
+            'employee_id' => $emp['id'],
+            'start_date[>=]' => $startDate,
+            'end_date[<=]' => $endDate,
+            'status' => 'approved'
+        ]);
+
+        $vacationHours = 0;
+        foreach ($vacationRequests as $req) {
+            $vacationHours += $req['days_requested'] * 8;
+        }
+
+        $reports[] = [
+            'employee_id' => $emp['id'],
+            'employee_name' => $emp['first_name'] . ' ' . $emp['last_name'],
+            'employee_number' => $emp['employee_number'],
+            'total_hours' => $totalHours,
+            'lunch_hours' => $lunchHours,
+            'unpaid_hours' => $unpaidHours,
+            'paid_hours' => $paidHours,
+            'vacation_hours' => $vacationHours
+        ];
+    }
+
+    send_success_response($reports);
+}
+
 function handle_get_employees() {
     require_admin();
 

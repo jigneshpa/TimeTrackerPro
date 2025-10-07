@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, TrendingUp, Clock, Plus, X, Save } from 'lucide-react';
+import { Calendar, TrendingUp, Clock, Plus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { getTodayTimeEvents, getTimeEvents } from '../lib/api';
 
 interface VacationData {
   allotted_hours: number;
@@ -45,31 +46,25 @@ const VacationSummary: React.FC = () => {
 
   const fetchVacationData = async () => {
     try {
-      // Get demo vacation data from localStorage
-      const vacationKey = `vacation_${employee.id}`;
-      const savedVacation = localStorage.getItem(vacationKey);
-      const vacation = savedVacation ? JSON.parse(savedVacation) : null;
-      
-      // Get time entries for this year
-      const entriesKey = `time_entries_${employee.id}`;
-      const savedEntries = localStorage.getItem(entriesKey);
+      // Get employee vacation data from employee record
+      const allotted_hours = employee.vacation_days_total * 8; // Convert days to hours
+      const used_hours = employee.vacation_days_used * 8; // Convert days to hours
+
+      // Get time entries for this year to calculate hours worked
       const currentYear = new Date().getFullYear();
-      
-      let timeEntries: any[] = [];
-      if (savedEntries) {
-        const allEntries = JSON.parse(savedEntries);
-        timeEntries = allEntries.filter((entry: any) => 
-          entry.timestamp.startsWith(currentYear.toString())
-        );
-      }
-      
+      const startDate = `${currentYear}-01-01`;
+      const endDate = `${currentYear}-12-31`;
+
+      const response = await getTimeEvents(startDate, endDate);
+      const timeEntries = response.success && response.data ? response.data : [];
+
       const hoursWorked = calculateHoursWorked(timeEntries);
       const accruedHours = calculateAccruedHours(hoursWorked);
 
       setVacationData({
-        allotted_hours: vacation?.allotted_hours || 80, // Default 2 weeks
-        accrued_hours: accruedHours,
-        used_hours: vacation?.used_hours || 0,
+        allotted_hours,
+        accrued_hours,
+        used_hours,
         hours_worked_this_year: hoursWorked,
       });
     } catch (error) {
@@ -80,14 +75,9 @@ const VacationSummary: React.FC = () => {
   };
 
   const fetchVacationRequests = async () => {
-    try {
-      const requestsKey = `vacation_requests_${employee.id}`;
-      const savedRequests = localStorage.getItem(requestsKey);
-      const requests = savedRequests ? JSON.parse(savedRequests) : [];
-      setVacationRequests(requests);
-    } catch (error) {
-      console.error('Error fetching vacation requests:', error);
-    }
+    // Vacation requests would be fetched from database
+    // For now, leaving empty since this is just displaying summary
+    setVacationRequests([]);
   };
 
   const handleSubmitRequest = async () => {
@@ -106,13 +96,8 @@ const VacationSummary: React.FC = () => {
     };
 
     try {
-      const requestsKey = `vacation_requests_${employee.id}`;
-      const savedRequests = localStorage.getItem(requestsKey);
-      const requests = savedRequests ? JSON.parse(savedRequests) : [];
-      requests.push(request);
-      localStorage.setItem(requestsKey, JSON.stringify(requests));
-
-      setVacationRequests(requests);
+      // Vacation request submission would go to database here
+      alert('Vacation request feature will be implemented with the vacation management module');
       setShowRequestForm(false);
       setNewRequest({ start_date: '', end_date: '', hours: 8 });
     } catch (error) {

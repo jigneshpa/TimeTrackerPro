@@ -171,6 +171,17 @@ export async function getAllTimeEntries(startDate?: string, endDate?: string, em
   return response;
 }
 
+export async function getTimeReports(startDate?: string, endDate?: string) {
+  let endpoint = '/api/admin/time-reports';
+  const params = new URLSearchParams();
+  if (startDate) params.append('start_date', startDate);
+  if (endDate) params.append('end_date', endDate);
+  if (params.toString()) endpoint += `?${params.toString()}`;
+
+  const response = await fetchAPI<any>(endpoint, 'GET');
+  return response;
+}
+
 export async function getAllVacationRequests(status?: string) {
   let endpoint = '/api/admin/vacation-requests';
   if (status) endpoint += `?status=${status}`;
