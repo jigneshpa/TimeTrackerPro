@@ -41,7 +41,14 @@ async function fetchAPI<T>(
     console.log('Authorization header set:', headers['Authorization']);
   }
 
-  const url = `${API_BASE}?endpoint=${encodeURIComponent(endpoint)}`;
+  // Split endpoint and query params
+  const [basePath, queryString] = endpoint.split('?');
+  let url = `${API_BASE}?endpoint=${encodeURIComponent(basePath)}`;
+
+  // Append any additional query params
+  if (queryString) {
+    url += `&${queryString}`;
+  }
 
   const options: RequestInit = {
     method,
