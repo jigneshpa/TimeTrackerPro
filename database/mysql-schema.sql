@@ -152,30 +152,37 @@ CREATE TABLE employees_timetrackpro (
 -- TIME_ENTRIES TABLE
 -- ============================================================================
 -- Stores clock in/out records for employees
-CREATE TABLE time_entries_timetrackpro (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    employee_id INT UNSIGNED NOT NULL,
-    clock_in DATETIME NOT NULL,
-    clock_out DATETIME NULL,
-    break_duration INT UNSIGNED DEFAULT 0 COMMENT 'Break duration in minutes',
-    notes TEXT,
-    status ENUM('active', 'completed', 'edited') NOT NULL DEFAULT 'active',
-    total_hours DECIMAL(5,2) GENERATED ALWAYS AS (
-        CASE
-            WHEN clock_out IS NOT NULL
-            THEN ROUND((TIMESTAMPDIFF(SECOND, clock_in, clock_out) - (break_duration * 60)) / 3600, 2)
-            ELSE 0
-        END
-    ) STORED,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (employee_id) REFERENCES employees_timetrackpro(id) ON DELETE CASCADE,
-    INDEX idx_employee_id (employee_id),
-    INDEX idx_clock_in (clock_in),
-    INDEX idx_clock_out (clock_out),
-    INDEX idx_status (status),
-    INDEX idx_employee_date (employee_id, clock_in)
+CREATE TABLE `time_entries_timetrackpro` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `employee_id` int(10) UNSIGNED NOT NULL,
+  `clock_in` datetime NOT NULL,
+  `clock_out` datetime DEFAULT NULL,
+  `break_duration` int(10) UNSIGNED DEFAULT 0 COMMENT 'Break duration in minutes',
+  `notes` text DEFAULT NULL,
+  `status` enum('active','completed','edited') NOT NULL DEFAULT 'active',
+  `total_hours` decimal(5,2) DEFAULT 0.00,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE `time_entries_timetrackpro`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_employee_id` (`employee_id`),
+  ADD KEY `idx_clock_in` (`clock_in`),
+  ADD KEY `idx_clock_out` (`clock_out`),
+  ADD KEY `idx_status` (`status`),
+  ADD KEY `idx_employee_date` (`employee_id`,`clock_in`);
+
+
+ALTER TABLE `time_entries_timetrackpro`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+
+
+--
+ALTER TABLE `time_entries_timetrackpro`
+  ADD CONSTRAINT `time_entries_timetrackpro_ibfk_1` FOREIGN KEY (`employee_id`) REFERENCES `employees_timetrackpro` (`id`) ON DELETE CASCADE;
+COMMIT;
+
 
 -- ============================================================================
 -- VACATION_REQUESTS TABLE
