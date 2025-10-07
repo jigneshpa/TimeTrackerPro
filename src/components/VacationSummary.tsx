@@ -205,42 +205,43 @@ const VacationSummary: React.FC = () => {
 
   const calculateHoursWorked = (entries: any[]) => {
     let totalHours = 0;
-    let clockInTime: Date | null = null;
-    let lunchStartTime: Date | null = null;
-    let unpaidStartTime: Date | null = null;
+
+    // Process time entry events
+    if (!entries || entries.length === 0) return 0;
+
+    let clockInTime: number | null = null;
+    let lunchOutTime: number | null = null;
+    let unpaidOutTime: number | null = null;
 
     entries.forEach((entry) => {
-      const entryTime = new Date(entry.timestamp);
+      const timestamp = new Date(entry.timestamp).getTime();
 
       switch (entry.entry_type) {
         case 'clock_in':
-          clockInTime = entryTime;
+          clockInTime = timestamp;
           break;
         case 'clock_out':
           if (clockInTime) {
-            const hoursWorked = (entryTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
-            totalHours += hoursWorked;
+            totalHours += (timestamp - clockInTime) / (1000 * 60 * 60);
             clockInTime = null;
           }
           break;
         case 'lunch_out':
-          lunchStartTime = entryTime;
+          lunchOutTime = timestamp;
           break;
         case 'lunch_in':
-          if (lunchStartTime) {
-            const lunchHours = (entryTime.getTime() - lunchStartTime.getTime()) / (1000 * 60 * 60);
-            totalHours -= lunchHours;
-            lunchStartTime = null;
+          if (lunchOutTime) {
+            totalHours -= (timestamp - lunchOutTime) / (1000 * 60 * 60);
+            lunchOutTime = null;
           }
           break;
         case 'unpaid_out':
-          unpaidStartTime = entryTime;
+          unpaidOutTime = timestamp;
           break;
         case 'unpaid_in':
-          if (unpaidStartTime) {
-            const unpaidHours = (entryTime.getTime() - unpaidStartTime.getTime()) / (1000 * 60 * 60);
-            totalHours -= unpaidHours;
-            unpaidStartTime = null;
+          if (unpaidOutTime) {
+            totalHours -= (timestamp - unpaidOutTime) / (1000 * 60 * 60);
+            unpaidOutTime = null;
           }
           break;
       }
