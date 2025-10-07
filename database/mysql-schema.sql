@@ -124,28 +124,18 @@ CREATE TABLE IF NOT EXISTS role_has_permissions (
 -- ============================================================================
 -- EMPLOYEES TABLE
 -- ============================================================================
--- Stores employee information linked to users table
+-- Stores employee vacation data linked to users table
+-- User details (name, email, phone, hire_date) are in users table
+-- Role information is in model_has_roles table
 CREATE TABLE employees_timetrackpro (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    user_id BIGINT UNSIGNED DEFAULT NULL,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    first_name VARCHAR(100) NOT NULL,
-    last_name VARCHAR(100) NOT NULL,
-    role ENUM('admin', 'employee') NOT NULL DEFAULT 'employee',
-    employee_number VARCHAR(50) UNIQUE,
-    phone VARCHAR(20),
-    hire_date DATE,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    user_id BIGINT UNSIGNED NOT NULL UNIQUE,
     vacation_days_total DECIMAL(5,2) NOT NULL DEFAULT 0.00,
     vacation_days_used DECIMAL(5,2) NOT NULL DEFAULT 0.00,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
-    INDEX idx_user_id (user_id),
-    INDEX idx_email (email),
-    INDEX idx_employee_number (employee_number),
-    INDEX idx_role (role),
-    INDEX idx_is_active (is_active)
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user_id (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
@@ -292,50 +282,26 @@ INSERT INTO users (
     CURRENT_TIMESTAMP
 );
 
--- Create admin employee record linked to user
+-- Create admin employee vacation record linked to user
 INSERT INTO employees_timetrackpro (
     user_id,
-    email,
-    first_name,
-    last_name,
-    role,
-    employee_number,
-    hire_date,
     vacation_days_total,
-    is_active
+    vacation_days_used
 ) VALUES (
     1,
-    'admin@example.com',
-    'Admin',
-    'User',
-    'admin',
-    'EMP001',
-    CURDATE(),
     20.00,
-    TRUE
+    0.00
 );
 
--- Create sample employee record linked to user
+-- Create sample employee vacation record linked to user
 INSERT INTO employees_timetrackpro (
     user_id,
-    email,
-    first_name,
-    last_name,
-    role,
-    employee_number,
-    hire_date,
     vacation_days_total,
-    is_active
+    vacation_days_used
 ) VALUES (
     2,
-    'employee@example.com',
-    'John',
-    'Doe',
-    'employee',
-    'EMP002',
-    CURDATE(),
     15.00,
-    TRUE
+    0.00
 );
 
 -- Assign roles to users
@@ -356,13 +322,14 @@ CREATE OR REPLACE VIEW active_time_entries_timetrackpro AS
 SELECT
     te.id,
     te.employee_id,
-    CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
-    e.employee_number,
+    CONCAT(u.first_name, ' ', COALESCE(u.last_name, '')) AS employee_name,
+    u.employee_code,
     te.clock_in,
     te.notes,
     TIMESTAMPDIFF(SECOND, te.clock_in, NOW()) / 3600 AS hours_elapsed
 FROM time_entries_timetrackpro te
 JOIN employees_timetrackpro e ON te.employee_id = e.id
+JOIN users u ON e.user_id = u.id
 WHERE te.clock_out IS NULL AND te.status = 'active';
 
 -- View for daily time summaries
@@ -370,28 +337,31 @@ CREATE OR REPLACE VIEW daily_time_summary_timetrackpro AS
 SELECT
     DATE(te.clock_in) AS work_date,
     te.employee_id,
-    CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
+    CONCAT(u.first_name, ' ', COALESCE(u.last_name, '')) AS employee_name,
     COUNT(*) AS entry_count,
     SUM(te.total_hours) AS total_hours,
     SUM(te.break_duration) AS total_break_minutes
 FROM time_entries_timetrackpro te
 JOIN employees_timetrackpro e ON te.employee_id = e.id
+JOIN users u ON e.user_id = u.id
 WHERE te.clock_out IS NOT NULL
-GROUP BY DATE(te.clock_in), te.employee_id, e.first_name, e.last_name;
+GROUP BY DATE(te.clock_in), te.employee_id, u.first_name, u.last_name;
 
 -- View for vacation balances
 CREATE OR REPLACE VIEW vacation_balances_timetrackpro AS
 SELECT
     e.id AS employee_id,
-    CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
+    u.id AS user_id,
+    CONCAT(u.first_name, ' ', COALESCE(u.last_name, '')) AS employee_name,
     e.vacation_days_total,
     e.vacation_days_used,
     (e.vacation_days_total - e.vacation_days_used) AS vacation_days_remaining,
     COUNT(vr.id) AS pending_requests
 FROM employees_timetrackpro e
+JOIN users u ON e.user_id = u.id
 LEFT JOIN vacation_requests_timetrackpro vr ON e.id = vr.employee_id AND vr.status = 'pending'
-WHERE e.is_active = TRUE
-GROUP BY e.id, e.first_name, e.last_name, e.vacation_days_total, e.vacation_days_used;
+WHERE u.status = 'Active'
+GROUP BY e.id, u.id, u.first_name, u.last_name, e.vacation_days_total, e.vacation_days_used;
 
 -- ============================================================================
 -- USEFUL QUERIES FOR YOUR LARAVEL API

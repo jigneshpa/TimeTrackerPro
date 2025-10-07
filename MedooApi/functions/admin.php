@@ -8,16 +8,26 @@ function handle_get_time_reports() {
 
     $db = get_db_connection();
 
-    $employees = $db->select('employees_timetrackpro', '*', [
-        'is_active' => true,
-        'ORDER' => ['first_name' => 'ASC']
-    ]);
+    // Get all active users with their employee vacation data
+    $sql = "SELECT
+        e.id AS employee_id,
+        u.id AS user_id,
+        u.employee_code AS employee_number,
+        u.first_name,
+        u.middle_name,
+        u.last_name
+    FROM employees_timetrackpro e
+    JOIN users u ON e.user_id = u.id
+    WHERE u.status = 'Active'
+    ORDER BY u.first_name ASC";
+
+    $employees = $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 
     $reports = [];
 
     foreach ($employees as $emp) {
         $events = $db->select('time_entry_events_timetrackpro', '*', [
-            'employee_id' => $emp['id'],
+            'employee_id' => $emp['employee_id'],
             'timestamp[>=]' => $startDate . ' 00:00:00',
             'timestamp[<=]' => $endDate . ' 23:59:59',
             'ORDER' => ['timestamp' => 'ASC']
@@ -79,7 +89,7 @@ function handle_get_time_reports() {
         $paidHours = round(($totalMinutes - $lunchMinutes - $unpaidMinutes) / 60, 2);
 
         $vacationRequests = $db->select('vacation_requests_timetrackpro', '*', [
-            'employee_id' => $emp['id'],
+            'employee_id' => $emp['employee_id'],
             'start_date[>=]' => $startDate,
             'end_date[<=]' => $endDate,
             'status' => 'approved'
@@ -90,9 +100,12 @@ function handle_get_time_reports() {
             $vacationHours += $req['days_requested'] * 8;
         }
 
+        $fullName = trim($emp['first_name'] . ' ' . ($emp['middle_name'] ?? '') . ' ' . ($emp['last_name'] ?? ''));
+
         $reports[] = [
-            'employee_id' => $emp['id'],
-            'employee_name' => $emp['first_name'] . ' ' . $emp['last_name'],
+            'employee_id' => $emp['employee_id'],
+            'user_id' => $emp['user_id'],
+            'employee_name' => $fullName,
             'employee_number' => $emp['employee_number'],
             'total_hours' => $totalHours,
             'lunch_hours' => $lunchHours,
@@ -109,29 +122,59 @@ function handle_get_employees() {
     require_admin();
 
     $db = get_db_connection();
-    $employees = $db->select('employees_timetrackpro', [
-        'id',
-        'email',
-        'first_name',
-        'last_name',
-        'role',
-        'employee_number',
-        'phone',
-        'hire_date',
-        'is_active',
-        'vacation_days_total',
-        'vacation_days_used',
-        'created_at',
-        'updated_at'
-    ], [
-        'ORDER' => ['created_at' => 'DESC']
-    ]);
 
-    foreach ($employees as &$employee) {
-        $employee['vacation_days_remaining'] = $employee['vacation_days_total'] - $employee['vacation_days_used'];
+    // Get all users with roles and vacation data
+    $sql = "SELECT
+        u.id AS user_id,
+        u.employee_code,
+        u.first_name,
+        u.middle_name,
+        u.last_name,
+        u.email,
+        u.mobile_phone,
+        u.phone_number,
+        u.start_date AS hire_date,
+        u.status,
+        e.id AS employee_id,
+        e.vacation_days_total,
+        e.vacation_days_used,
+        GROUP_CONCAT(r.short_name ORDER BY r.id SEPARATOR ', ') AS role_short_names
+    FROM users u
+    LEFT JOIN employees_timetrackpro e ON e.user_id = u.id
+    LEFT JOIN model_has_roles mhr ON mhr.model_id = u.id AND mhr.model_type = 'App\\\\Models\\\\Iam\\\\Personnel\\\\User'
+    LEFT JOIN roles r ON r.id = mhr.role_id
+    GROUP BY u.id
+    ORDER BY u.id";
+
+    $employees = $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+
+    $result = [];
+    foreach ($employees as $emp) {
+        $roleNames = $emp['role_short_names'] ?? '';
+        $adminRoles = ['admin', 'master_admin'];
+        $rolesArray = array_filter(array_map('trim', explode(',', $roleNames)));
+        $isAdmin = !empty(array_intersect($rolesArray, $adminRoles));
+
+        $result[] = [
+            'id' => $emp['employee_id'],
+            'user_id' => $emp['user_id'],
+            'employee_code' => $emp['employee_code'],
+            'first_name' => $emp['first_name'],
+            'middle_name' => $emp['middle_name'],
+            'last_name' => $emp['last_name'],
+            'email' => $emp['email'],
+            'phone' => $emp['mobile_phone'] ?? $emp['phone_number'],
+            'hire_date' => $emp['hire_date'],
+            'role' => $isAdmin ? 'admin' : 'employee',
+            'role_short_names' => $roleNames,
+            'is_active' => $emp['status'] === 'Active',
+            'vacation_days_total' => $emp['vacation_days_total'] ?? 0,
+            'vacation_days_used' => $emp['vacation_days_used'] ?? 0,
+            'vacation_days_remaining' => ($emp['vacation_days_total'] ?? 0) - ($emp['vacation_days_used'] ?? 0)
+        ];
     }
 
-    send_success_response($employees);
+    send_success_response($result);
 }
 
 function handle_get_employee() {
@@ -142,104 +185,60 @@ function handle_get_employee() {
     }
 
     $db = get_db_connection();
-    $employee = $db->get('employees_timetrackpro', [
-        'id',
-        'email',
-        'first_name',
-        'last_name',
-        'role',
-        'employee_number',
-        'phone',
-        'hire_date',
-        'is_active',
-        'vacation_days_total',
-        'vacation_days_used',
-        'created_at',
-        'updated_at'
-    ], [
-        'id' => $_GET['id']
-    ]);
+
+    $sql = "SELECT
+        u.id AS user_id,
+        u.employee_code,
+        u.first_name,
+        u.middle_name,
+        u.last_name,
+        u.email,
+        u.mobile_phone,
+        u.phone_number,
+        u.start_date AS hire_date,
+        u.status,
+        e.id AS employee_id,
+        e.vacation_days_total,
+        e.vacation_days_used,
+        GROUP_CONCAT(r.short_name ORDER BY r.id SEPARATOR ', ') AS role_short_names
+    FROM employees_timetrackpro e
+    JOIN users u ON e.user_id = u.id
+    LEFT JOIN model_has_roles mhr ON mhr.model_id = u.id AND mhr.model_type = 'App\\\\Models\\\\Iam\\\\Personnel\\\\User'
+    LEFT JOIN roles r ON r.id = mhr.role_id
+    WHERE e.id = ?
+    GROUP BY u.id";
+
+    $stmt = $db->query($sql, [$_GET['id']]);
+    $employee = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$employee) {
         send_error_response('Employee not found', 404);
     }
 
-    $employee['vacation_days_remaining'] = $employee['vacation_days_total'] - $employee['vacation_days_used'];
+    $roleNames = $employee['role_short_names'] ?? '';
+    $adminRoles = ['admin', 'master_admin'];
+    $rolesArray = array_filter(array_map('trim', explode(',', $roleNames)));
+    $isAdmin = !empty(array_intersect($rolesArray, $adminRoles));
 
-    send_success_response($employee);
-}
-
-function handle_create_employee() {
-    require_admin();
-    $data = json_decode(file_get_contents('php://input'), true);
-
-    $required = ['email', 'password', 'first_name', 'last_name'];
-    foreach ($required as $field) {
-        if (!isset($data[$field]) || empty($data[$field])) {
-            send_error_response("Field '$field' is required", 400);
-        }
-    }
-
-    $db = get_db_connection();
-    $existing = $db->get('users', 'id', ['email' => $data['email']]);
-    if ($existing) {
-        send_error_response('Email already exists', 400);
-    }
-
-    $passwordHash = password_hash($data['password'], PASSWORD_BCRYPT);
-    $uniqueId = 'USR' . str_pad(rand(1, 99999), 5, '0', STR_PAD_LEFT);
-    $employeeCode = $data['employee_number'] ?? ('EMP' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT));
-
-    $userInsertData = [
-        'unique_id' => $uniqueId,
-        'employee_code' => $employeeCode,
-        'first_name' => $data['first_name'],
-        'last_name' => $data['last_name'] ?? '',
-        'email' => $data['email'],
-        'password' => $passwordHash,
-        'mobile_phone' => $data['phone'] ?? null,
-        'start_date' => $data['hire_date'] ?? date('Y-m-d'),
-        'status' => ($data['is_active'] ?? true) ? 'Active' : 'Inactive',
-        'created_at' => date('Y-m-d H:i:s'),
-        'updated_at' => date('Y-m-d H:i:s')
+    $result = [
+        'id' => $employee['employee_id'],
+        'user_id' => $employee['user_id'],
+        'employee_code' => $employee['employee_code'],
+        'first_name' => $employee['first_name'],
+        'middle_name' => $employee['middle_name'],
+        'last_name' => $employee['last_name'],
+        'email' => $employee['email'],
+        'phone' => $employee['mobile_phone'] ?? $employee['phone_number'],
+        'hire_date' => $employee['hire_date'],
+        'role' => $isAdmin ? 'admin' : 'employee',
+        'role_short_names' => $roleNames,
+        'is_active' => $employee['status'] === 'Active',
+        'vacation_days_total' => $employee['vacation_days_total'],
+        'vacation_days_used' => $employee['vacation_days_used'],
+        'vacation_days_remaining' => $employee['vacation_days_total'] - $employee['vacation_days_used']
     ];
 
-    $db->insert('users', $userInsertData);
-    $userId = $db->id();
-
-    $insertData = [
-        'user_id' => $userId,
-        'email' => $data['email'],
-        'first_name' => $data['first_name'],
-        'last_name' => $data['last_name'] ?? '',
-        'role' => $data['role'] ?? 'employee',
-        'employee_number' => $employeeCode,
-        'phone' => $data['phone'] ?? null,
-        'hire_date' => $data['hire_date'] ?? date('Y-m-d'),
-        'vacation_days_total' => $data['vacation_days_total'] ?? 0,
-        'is_active' => $data['is_active'] ?? true
-    ];
-
-    $db->insert('employees_timetrackpro', $insertData);
-    $employeeId = $db->id();
-
-    $employee = $db->get('employees_timetrackpro', [
-        'id',
-        'email',
-        'first_name',
-        'last_name',
-        'role',
-        'employee_number',
-        'phone',
-        'hire_date',
-        'is_active',
-        'vacation_days_total',
-        'vacation_days_used',
-        'created_at',
-        'updated_at'
-    ], ['id' => $employeeId]);
-
-    send_success_response($employee, 'Employee created successfully', 201);
+    send_success_response($result);
 }
 
 function handle_update_employee() {
@@ -251,57 +250,39 @@ function handle_update_employee() {
     }
 
     $db = get_db_connection();
-    $employee = $db->get('employees_timetrackpro', 'id', ['id' => $data['id']]);
+
+    // Get employee to find user_id
+    $employee = $db->get('employees_timetrackpro', '*', ['id' => $data['id']]);
     if (!$employee) {
         send_error_response('Employee not found', 404);
     }
 
-    $updateData = [];
-    if (isset($data['email'])) {
-        $existing = $db->get('employees_timetrackpro', 'id', [
-            'email' => $data['email'],
-            'id[!]' => $data['id']
-        ]);
-        if ($existing) {
-            send_error_response('Email already exists', 400);
-        }
-        $updateData['email'] = $data['email'];
+    // Update users table fields
+    $userUpdateData = [];
+    if (isset($data['first_name'])) $userUpdateData['first_name'] = $data['first_name'];
+    if (isset($data['last_name'])) $userUpdateData['last_name'] = $data['last_name'];
+    if (isset($data['middle_name'])) $userUpdateData['middle_name'] = $data['middle_name'];
+    if (isset($data['email'])) $userUpdateData['email'] = $data['email'];
+    if (isset($data['phone'])) $userUpdateData['mobile_phone'] = $data['phone'];
+    if (isset($data['hire_date'])) $userUpdateData['start_date'] = $data['hire_date'];
+    if (isset($data['is_active'])) $userUpdateData['status'] = $data['is_active'] ? 'Active' : 'Inactive';
+
+    if (!empty($userUpdateData)) {
+        $userUpdateData['updated_at'] = date('Y-m-d H:i:s');
+        $db->update('users', $userUpdateData, ['id' => $employee['user_id']]);
     }
 
-    if (isset($data['password']) && !empty($data['password'])) {
-        $updateData['password_hash'] = password_hash($data['password'], PASSWORD_BCRYPT);
+    // Update employees_timetrackpro table fields (vacation data only)
+    $empUpdateData = [];
+    if (isset($data['vacation_days_total'])) $empUpdateData['vacation_days_total'] = $data['vacation_days_total'];
+    if (isset($data['vacation_days_used'])) $empUpdateData['vacation_days_used'] = $data['vacation_days_used'];
+
+    if (!empty($empUpdateData)) {
+        $db->update('employees_timetrackpro', $empUpdateData, ['id' => $data['id']]);
     }
 
-    if (isset($data['first_name'])) $updateData['first_name'] = $data['first_name'];
-    if (isset($data['last_name'])) $updateData['last_name'] = $data['last_name'];
-    if (isset($data['role'])) $updateData['role'] = $data['role'];
-    if (isset($data['employee_number'])) $updateData['employee_number'] = $data['employee_number'];
-    if (isset($data['phone'])) $updateData['phone'] = $data['phone'];
-    if (isset($data['hire_date'])) $updateData['hire_date'] = $data['hire_date'];
-    if (isset($data['vacation_days_total'])) $updateData['vacation_days_total'] = $data['vacation_days_total'];
-    if (isset($data['is_active'])) $updateData['is_active'] = $data['is_active'];
-
-    if (!empty($updateData)) {
-        $db->update('employees_timetrackpro', $updateData, ['id' => $data['id']]);
-    }
-
-    $updatedEmployee = $db->get('employees_timetrackpro', [
-        'id',
-        'email',
-        'first_name',
-        'last_name',
-        'role',
-        'employee_number',
-        'phone',
-        'hire_date',
-        'is_active',
-        'vacation_days_total',
-        'vacation_days_used',
-        'created_at',
-        'updated_at'
-    ], ['id' => $data['id']]);
-
-    send_success_response($updatedEmployee, 'Employee updated successfully');
+    // Fetch updated employee
+    handle_get_employee();
 }
 
 function handle_delete_employee() {
@@ -313,12 +294,16 @@ function handle_delete_employee() {
     }
 
     $db = get_db_connection();
-    $employee = $db->get('employees_timetrackpro', 'id', ['id' => $data['id']]);
+    $employee = $db->get('employees_timetrackpro', 'user_id', ['id' => $data['id']]);
     if (!$employee) {
         send_error_response('Employee not found', 404);
     }
 
+    // Delete from employees_timetrackpro (will cascade due to FK)
     $db->delete('employees_timetrackpro', ['id' => $data['id']]);
+
+    // Optionally delete from users table
+    // $db->delete('users', ['id' => $employee['user_id']]);
 
     send_success_response(null, 'Employee deleted successfully');
 }
@@ -344,15 +329,20 @@ function handle_get_all_time_entries() {
     $entries = $db->select('time_entries_timetrackpro', '*', $where);
 
     foreach ($entries as &$entry) {
-        $employee = $db->get('employees_timetrackpro', [
-            'first_name',
-            'last_name',
-            'employee_number'
-        ], [
-            'id' => $entry['employee_id']
-        ]);
-        $entry['employee_name'] = $employee['first_name'] . ' ' . $employee['last_name'];
-        $entry['employee_number'] = $employee['employee_number'];
+        $sql = "SELECT
+            CONCAT(u.first_name, ' ', COALESCE(u.last_name, '')) AS employee_name,
+            u.employee_code AS employee_number
+        FROM employees_timetrackpro e
+        JOIN users u ON e.user_id = u.id
+        WHERE e.id = ?";
+
+        $stmt = $db->query($sql, [$entry['employee_id']]);
+        $employee = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($employee) {
+            $entry['employee_name'] = $employee['employee_name'];
+            $entry['employee_number'] = $employee['employee_number'];
+        }
     }
 
     send_success_response($entries);
@@ -373,24 +363,27 @@ function handle_get_all_vacation_requests() {
     $requests = $db->select('vacation_requests_timetrackpro', '*', $where);
 
     foreach ($requests as &$request) {
-        $employee = $db->get('employees_timetrackpro', [
-            'first_name',
-            'last_name',
-            'employee_number'
-        ], [
-            'id' => $request['employee_id']
-        ]);
-        $request['employee_name'] = $employee['first_name'] . ' ' . $employee['last_name'];
-        $request['employee_number'] = $employee['employee_number'];
+        $sql = "SELECT
+            CONCAT(u.first_name, ' ', COALESCE(u.last_name, '')) AS employee_name,
+            u.employee_code AS employee_number
+        FROM employees_timetrackpro e
+        JOIN users u ON e.user_id = u.id
+        WHERE e.id = ?";
+
+        $stmt = $db->query($sql, [$request['employee_id']]);
+        $employee = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($employee) {
+            $request['employee_name'] = $employee['employee_name'];
+            $request['employee_number'] = $employee['employee_number'];
+        }
 
         if ($request['approved_by']) {
-            $approver = $db->get('employees_timetrackpro', [
-                'first_name',
-                'last_name'
-            ], [
-                'id' => $request['approved_by']
-            ]);
-            $request['approved_by_name'] = $approver['first_name'] . ' ' . $approver['last_name'];
+            $stmt = $db->query($sql, [$request['approved_by']]);
+            $approver = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($approver) {
+                $request['approved_by_name'] = $approver['employee_name'];
+            }
         }
     }
 
@@ -416,9 +409,12 @@ function handle_approve_vacation() {
         send_error_response('Can only approve pending requests', 400);
     }
 
+    // Get admin's employee ID
+    $adminEmployee = $db->get('employees_timetrackpro', 'id', ['user_id' => $admin['id']]);
+
     $db->update('vacation_requests_timetrackpro', [
         'status' => 'approved',
-        'approved_by' => $admin['id'],
+        'approved_by' => $adminEmployee,
         'approved_at' => date('Y-m-d H:i:s')
     ], [
         'id' => $data['id']
@@ -454,9 +450,12 @@ function handle_deny_vacation() {
         send_error_response('Can only deny pending requests', 400);
     }
 
+    // Get admin's employee ID
+    $adminEmployee = $db->get('employees_timetrackpro', 'id', ['user_id' => $admin['id']]);
+
     $db->update('vacation_requests_timetrackpro', [
         'status' => 'denied',
-        'approved_by' => $admin['id'],
+        'approved_by' => $adminEmployee,
         'approved_at' => date('Y-m-d H:i:s'),
         'denial_reason' => $data['denial_reason'] ?? null
     ], [

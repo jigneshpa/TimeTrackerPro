@@ -14,26 +14,48 @@ function authenticate_user() {
     }
 
     $db = get_db_connection();
-    $employee = $db->get('employees_timetrackpro', '*', [
+
+    // Get user from users table
+    $user = $db->get('users', '*', [
         'id' => $payload['user_id'],
-        'is_active' => true
+        'status' => 'Active'
     ]);
 
-    if (!$employee) {
+    if (!$user) {
         send_error_response('User not found or inactive', 401);
     }
 
-    return $employee;
+    // Get user roles
+    $userRoles = $db->select('model_has_roles', [
+        '[>]roles' => ['role_id' => 'id']
+    ], [
+        'roles.id',
+        'roles.name',
+        'roles.short_name',
+        'roles.color'
+    ], [
+        'model_has_roles.model_id' => $user['id'],
+        'model_has_roles.model_type' => 'App\\Models\\Iam\\Personnel\\User'
+    ]);
+
+    $user['roles'] = $userRoles;
+    $user['role_short_names'] = array_column($userRoles, 'short_name');
+
+    return $user;
 }
 
 function require_admin() {
-    $employee = authenticate_user();
+    $user = authenticate_user();
 
-    if ($employee['role'] !== 'admin') {
+    // Check if user has admin or master_admin role
+    $adminRoles = ['admin', 'master_admin'];
+    $hasAdminRole = !empty(array_intersect($user['role_short_names'], $adminRoles));
+
+    if (!$hasAdminRole) {
         send_error_response('Admin access required', 403);
     }
 
-    return $employee;
+    return $user;
 }
 
 function handle_login() {
@@ -53,6 +75,7 @@ function handle_login() {
         send_error_response('Invalid credentials', 401);
     }
 
+    // Get user roles
     $userRoles = $db->select('model_has_roles', [
         '[>]roles' => ['role_id' => 'id']
     ], [
@@ -65,24 +88,19 @@ function handle_login() {
         'model_has_roles.model_type' => 'App\\Models\\Iam\\Personnel\\User'
     ]);
 
-    $primaryRole = !empty($userRoles) && isset($userRoles[0]['short_name']) ? $userRoles[0]['short_name'] : 'employee';
+    $roleShortNames = array_column($userRoles, 'short_name');
+    $adminRoles = ['admin', 'master_admin'];
+    $isAdmin = !empty(array_intersect($roleShortNames, $adminRoles));
 
+    // Get or create employee vacation record
     $employee = $db->get('employees_timetrackpro', '*', [
-        'user_id' => $user['id'],
-        'is_active' => true
+        'user_id' => $user['id']
     ]);
 
     if (!$employee) {
+        // Create employee vacation record if it doesn't exist
         $employeeData = [
             'user_id' => $user['id'],
-            'email' => $user['email'],
-            'first_name' => $user['first_name'],
-            'last_name' => $user['last_name'] ?? '',
-            'role' => $primaryRole,
-            'employee_number' => $user['employee_code'],
-            'phone' => $user['mobile_phone'] ?? $user['phone_number'],
-            'hire_date' => $user['start_date'],
-            'is_active' => true,
             'vacation_days_total' => 0,
             'vacation_days_used' => 0
         ];
@@ -93,24 +111,42 @@ function handle_login() {
     }
 
     unset($user['password']);
-    $employee['roles'] = $userRoles;
+
+    // Build response user object
+    $responseUser = [
+        'id' => $employee['id'], // employee_timetrackpro ID
+        'user_id' => $user['id'],
+        'employee_code' => $user['employee_code'],
+        'first_name' => $user['first_name'],
+        'middle_name' => $user['middle_name'],
+        'last_name' => $user['last_name'],
+        'email' => $user['email'],
+        'phone' => $user['mobile_phone'] ?? $user['phone_number'],
+        'hire_date' => $user['start_date'],
+        'role' => $isAdmin ? 'admin' : 'employee',
+        'roles' => $userRoles,
+        'role_short_names' => implode(', ', $roleShortNames),
+        'vacation_days_total' => $employee['vacation_days_total'],
+        'vacation_days_used' => $employee['vacation_days_used'],
+        'is_active' => $user['status'] === 'Active'
+    ];
 
     $token = jwt_encode([
-        'user_id' => $employee['id'],
-        'email' => $employee['email'],
-        'role' => $employee['role']
+        'user_id' => $user['id'],
+        'email' => $user['email'],
+        'role' => $responseUser['role']
     ]);
 
     send_success_response([
         'token' => $token,
-        'user' => $employee
+        'user' => $responseUser
     ], 'Login successful');
 }
 
 function handle_register() {
     $data = json_decode(file_get_contents('php://input'), true);
 
-    $required = ['email', 'password', 'first_name', 'last_name', 'employee_code'];
+    $required = ['email', 'password', 'first_name', 'employee_code'];
     foreach ($required as $field) {
         if (!isset($data[$field]) || empty($data[$field])) {
             send_error_response("Field '$field' is required", 400);
@@ -143,58 +179,87 @@ function handle_register() {
     $db->insert('users', $userInsertData);
     $userId = $db->id();
 
+    // Create employee vacation record
     $employeeInsertData = [
         'user_id' => $userId,
-        'email' => $data['email'],
-        'first_name' => $data['first_name'],
-        'last_name' => $data['last_name'] ?? '',
-        'role' => $data['role'] ?? 'employee',
-        'employee_number' => $data['employee_code'],
-        'phone' => $data['phone'] ?? null,
-        'hire_date' => $data['hire_date'] ?? date('Y-m-d'),
         'vacation_days_total' => $data['vacation_days_total'] ?? 0,
-        'is_active' => true
+        'vacation_days_used' => 0
     ];
 
     $db->insert('employees_timetrackpro', $employeeInsertData);
     $employeeId = $db->id();
 
+    $user = $db->get('users', '*', ['id' => $userId]);
     $employee = $db->get('employees_timetrackpro', '*', ['id' => $employeeId]);
 
+    $responseUser = [
+        'id' => $employee['id'],
+        'user_id' => $user['id'],
+        'employee_code' => $user['employee_code'],
+        'first_name' => $user['first_name'],
+        'last_name' => $user['last_name'],
+        'email' => $user['email'],
+        'phone' => $user['mobile_phone'],
+        'hire_date' => $user['start_date'],
+        'role' => 'employee',
+        'vacation_days_total' => $employee['vacation_days_total'],
+        'vacation_days_used' => $employee['vacation_days_used']
+    ];
+
     $token = jwt_encode([
-        'user_id' => $employee['id'],
-        'email' => $employee['email'],
-        'role' => $employee['role']
+        'user_id' => $user['id'],
+        'email' => $user['email'],
+        'role' => 'employee'
     ]);
 
     send_success_response([
         'token' => $token,
-        'user' => $employee
+        'user' => $responseUser
     ], 'Registration successful', 201);
 }
 
 function handle_me() {
-    $token = get_token_from_header();
-
-    if (!$token) {
-        send_error_response('Authentication required', 401);
-    }
-
-    $payload = jwt_decode($token);
-
-    if (!$payload) {
-        send_error_response('Invalid or expired token', 401);
-    }
+    $user = authenticate_user();
 
     $db = get_db_connection();
+
+    // Get employee vacation data
     $employee = $db->get('employees_timetrackpro', '*', [
-        'id' => $payload['user_id'],
-        'is_active' => true
+        'user_id' => $user['id']
     ]);
 
     if (!$employee) {
-        send_error_response('User not found', 404);
+        // Create if doesn't exist
+        $employeeData = [
+            'user_id' => $user['id'],
+            'vacation_days_total' => 0,
+            'vacation_days_used' => 0
+        ];
+        $db->insert('employees_timetrackpro', $employeeData);
+        $employeeId = $db->id();
+        $employee = $db->get('employees_timetrackpro', '*', ['id' => $employeeId]);
     }
 
-    send_success_response($employee);
+    $adminRoles = ['admin', 'master_admin'];
+    $isAdmin = !empty(array_intersect($user['role_short_names'], $adminRoles));
+
+    $responseUser = [
+        'id' => $employee['id'],
+        'user_id' => $user['id'],
+        'employee_code' => $user['employee_code'],
+        'first_name' => $user['first_name'],
+        'middle_name' => $user['middle_name'],
+        'last_name' => $user['last_name'],
+        'email' => $user['email'],
+        'phone' => $user['mobile_phone'] ?? $user['phone_number'],
+        'hire_date' => $user['start_date'],
+        'role' => $isAdmin ? 'admin' : 'employee',
+        'roles' => $user['roles'],
+        'role_short_names' => implode(', ', $user['role_short_names']),
+        'vacation_days_total' => $employee['vacation_days_total'],
+        'vacation_days_used' => $employee['vacation_days_used'],
+        'is_active' => $user['status'] === 'Active'
+    ];
+
+    send_success_response($responseUser);
 }
