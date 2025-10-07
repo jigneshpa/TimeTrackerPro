@@ -30,13 +30,14 @@ CREATE OR REPLACE VIEW today_time_events_timetrackpro AS
 SELECT
     tee.id,
     tee.employee_id,
-    CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
-    e.employee_number,
+    CONCAT(u.first_name, ' ', u.last_name) AS employee_name,
+    u.employee_code AS employee_number,
     tee.entry_type,
     tee.timestamp,
     tee.notes
 FROM time_entry_events_timetrackpro tee
 JOIN employees_timetrackpro e ON tee.employee_id = e.id
+JOIN users u ON e.user_id = u.id
 WHERE DATE(tee.timestamp) = CURDATE()
 ORDER BY tee.timestamp ASC;
 
