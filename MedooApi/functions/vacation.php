@@ -1,14 +1,14 @@
 <?php
 
 function handle_get_vacation_balance() {
-    $employee = authenticate_user();
+    $user = authenticate_user();
 
     $db = get_db_connection();
     $balance = $db->get('employees_timetrackpro', [
         'vacation_days_total',
         'vacation_days_used'
     ], [
-        'id' => $employee['id']
+        'id' => $user['employee_id']
     ]);
 
     $balance['vacation_days_remaining'] = $balance['vacation_days_total'] - $balance['vacation_days_used'];
@@ -17,23 +17,25 @@ function handle_get_vacation_balance() {
 }
 
 function handle_get_vacation_requests() {
-    $employee = authenticate_user();
+    $user = authenticate_user();
 
     $db = get_db_connection();
     $requests = $db->select('vacation_requests_timetrackpro', '*', [
-        'employee_id' => $employee['id'],
+        'employee_id' => $user['employee_id'],
         'ORDER' => ['created_at' => 'DESC']
     ]);
 
     foreach ($requests as &$request) {
         if ($request['approved_by']) {
-            $approver = $db->get('employees_timetrackpro', [
-                'first_name',
-                'last_name'
-            ], [
-                'id' => $request['approved_by']
-            ]);
-            $request['approved_by_name'] = $approver['first_name'] . ' ' . $approver['last_name'];
+            $sql = "SELECT CONCAT(u.first_name, ' ', COALESCE(u.last_name, '')) AS approver_name
+                    FROM employees_timetrackpro e
+                    JOIN users u ON e.user_id = u.id
+                    WHERE e.id = ?";
+            $stmt = $db->query($sql, [$request['approved_by']]);
+            $approver = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($approver) {
+                $request['approved_by_name'] = $approver['approver_name'];
+            }
         }
     }
 
@@ -41,7 +43,7 @@ function handle_get_vacation_requests() {
 }
 
 function handle_create_vacation_request() {
-    $employee = authenticate_user();
+    $user = authenticate_user();
     $data = json_decode(file_get_contents('php://input'), true);
 
     $required = ['start_date', 'end_date', 'days_requested'];
@@ -56,7 +58,7 @@ function handle_create_vacation_request() {
         'vacation_days_total',
         'vacation_days_used'
     ], [
-        'id' => $employee['id']
+        'id' => $user['employee_id']
     ]);
 
     $remainingDays = $balance['vacation_days_total'] - $balance['vacation_days_used'];
@@ -66,7 +68,7 @@ function handle_create_vacation_request() {
     }
 
     $insertData = [
-        'employee_id' => $employee['id'],
+        'employee_id' => $user['employee_id'],
         'start_date' => $data['start_date'],
         'end_date' => $data['end_date'],
         'days_requested' => $data['days_requested'],
@@ -84,7 +86,7 @@ function handle_create_vacation_request() {
 }
 
 function handle_update_vacation_request() {
-    $employee = authenticate_user();
+    $user = authenticate_user();
     $data = json_decode(file_get_contents('php://input'), true);
 
     if (!isset($data['id'])) {
@@ -94,7 +96,7 @@ function handle_update_vacation_request() {
     $db = get_db_connection();
     $request = $db->get('vacation_requests_timetrackpro', '*', [
         'id' => $data['id'],
-        'employee_id' => $employee['id']
+        'employee_id' => $user['employee_id']
     ]);
 
     if (!$request) {
@@ -122,7 +124,7 @@ function handle_update_vacation_request() {
 }
 
 function handle_cancel_vacation_request() {
-    $employee = authenticate_user();
+    $user = authenticate_user();
     $data = json_decode(file_get_contents('php://input'), true);
 
     if (!isset($data['id'])) {
@@ -132,7 +134,7 @@ function handle_cancel_vacation_request() {
     $db = get_db_connection();
     $request = $db->get('vacation_requests_timetrackpro', '*', [
         'id' => $data['id'],
-        'employee_id' => $employee['id']
+        'employee_id' => $user['employee_id']
     ]);
 
     if (!$request) {

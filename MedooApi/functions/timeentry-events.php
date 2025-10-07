@@ -1,7 +1,7 @@
 <?php
 
 function handle_create_time_entry_event() {
-    $employee = authenticate_user();
+    $user = authenticate_user();
     $data = json_decode(file_get_contents('php://input'), true);
 
     if (!isset($data['entry_type'])) {
@@ -17,7 +17,7 @@ function handle_create_time_entry_event() {
 
     // Validation logic based on entry type
     $entries = $db->select('time_entry_events_timetrackpro', '*', [
-        'employee_id' => $employee['id'],
+        'employee_id' => $user['employee_id'],
         'timestamp[>=]' => date('Y-m-d 00:00:00'),
         'ORDER' => ['timestamp' => 'DESC']
     ]);
@@ -69,7 +69,7 @@ function handle_create_time_entry_event() {
     }
 
     $insertData = [
-        'employee_id' => $employee['id'],
+        'employee_id' => $user['employee_id'],
         'entry_type' => $data['entry_type'],
         'timestamp' => date('Y-m-d H:i:s'),
         'notes' => $data['notes'] ?? null
@@ -84,11 +84,11 @@ function handle_create_time_entry_event() {
 }
 
 function handle_get_today_time_events() {
-    $employee = authenticate_user();
+    $user = authenticate_user();
 
     $db = get_db_connection();
     $entries = $db->select('time_entry_events_timetrackpro', '*', [
-        'employee_id' => $employee['id'],
+        'employee_id' => $user['employee_id'],
         'timestamp[>=]' => date('Y-m-d 00:00:00'),
         'timestamp[<=]' => date('Y-m-d 23:59:59'),
         'ORDER' => ['timestamp' => 'ASC']
@@ -98,14 +98,14 @@ function handle_get_today_time_events() {
 }
 
 function handle_get_time_events() {
-    $employee = authenticate_user();
+    $user = authenticate_user();
 
     $startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
     $endDate = $_GET['end_date'] ?? date('Y-m-d');
 
     $db = get_db_connection();
     $entries = $db->select('time_entry_events_timetrackpro', '*', [
-        'employee_id' => $employee['id'],
+        'employee_id' => $user['employee_id'],
         'timestamp[>=]' => $startDate . ' 00:00:00',
         'timestamp[<=]' => $endDate . ' 23:59:59',
         'ORDER' => ['timestamp' => 'ASC']
@@ -115,11 +115,11 @@ function handle_get_time_events() {
 }
 
 function handle_get_current_status() {
-    $employee = authenticate_user();
+    $user = authenticate_user();
 
     $db = get_db_connection();
     $entries = $db->select('time_entry_events_timetrackpro', '*', [
-        'employee_id' => $employee['id'],
+        'employee_id' => $user['employee_id'],
         'timestamp[>=]' => date('Y-m-d 00:00:00'),
         'ORDER' => ['timestamp' => 'DESC'],
         'LIMIT' => 1

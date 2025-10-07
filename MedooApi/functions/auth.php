@@ -38,6 +38,23 @@ function authenticate_user() {
         'model_has_roles.model_type' => 'App\\Models\\Iam\\Personnel\\User'
     ]);
 
+    // Get employee_id from employees_timetrackpro
+    $employee = $db->get('employees_timetrackpro', 'id', [
+        'user_id' => $user['id']
+    ]);
+
+    if (!$employee) {
+        // Create employee record if it doesn't exist
+        $employeeData = [
+            'user_id' => $user['id'],
+            'vacation_days_total' => 0,
+            'vacation_days_used' => 0
+        ];
+        $db->insert('employees_timetrackpro', $employeeData);
+        $employee = $db->id();
+    }
+
+    $user['employee_id'] = $employee;
     $user['roles'] = $userRoles;
     $user['role_short_names'] = array_column($userRoles, 'short_name');
 

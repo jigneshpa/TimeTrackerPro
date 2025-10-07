@@ -1,12 +1,12 @@
 <?php
 
 function handle_clock_in() {
-    $employee = authenticate_user();
+    $user = authenticate_user();
     $data = json_decode(file_get_contents('php://input'), true);
 
     $db = get_db_connection();
     $activeEntry = $db->get('time_entries_timetrackpro', 'id', [
-        'employee_id' => $employee['id'],
+        'employee_id' => $user['employee_id'],
         'clock_out' => null,
         'status' => 'active'
     ]);
@@ -16,7 +16,7 @@ function handle_clock_in() {
     }
 
     $insertData = [
-        'employee_id' => $employee['id'],
+        'employee_id' => $user['employee_id'],
         'clock_in' => date('Y-m-d H:i:s'),
         'notes' => $data['notes'] ?? null,
         'status' => 'active'
@@ -31,12 +31,12 @@ function handle_clock_in() {
 }
 
 function handle_clock_out() {
-    $employee = authenticate_user();
+    $user = authenticate_user();
     $data = json_decode(file_get_contents('php://input'), true);
 
     $db = get_db_connection();
     $activeEntry = $db->get('time_entries_timetrackpro', '*', [
-        'employee_id' => $employee['id'],
+        'employee_id' => $user['employee_id'],
         'clock_out' => null,
         'status' => 'active'
     ]);
@@ -59,11 +59,11 @@ function handle_clock_out() {
 }
 
 function handle_get_active_entry() {
-    $employee = authenticate_user();
+    $user = authenticate_user();
 
     $db = get_db_connection();
     $activeEntry = $db->get('time_entries_timetrackpro', '*', [
-        'employee_id' => $employee['id'],
+        'employee_id' => $user['employee_id'],
         'clock_out' => null,
         'status' => 'active'
     ]);
@@ -72,11 +72,11 @@ function handle_get_active_entry() {
 }
 
 function handle_get_today_entries() {
-    $employee = authenticate_user();
+    $user = authenticate_user();
 
     $db = get_db_connection();
     $entries = $db->select('time_entries_timetrackpro', '*', [
-        'employee_id' => $employee['id'],
+        'employee_id' => $user['employee_id'],
         'clock_in[>=]' => date('Y-m-d 00:00:00'),
         'clock_in[<=]' => date('Y-m-d 23:59:59'),
         'ORDER' => ['clock_in' => 'DESC']
@@ -86,14 +86,14 @@ function handle_get_today_entries() {
 }
 
 function handle_get_entries() {
-    $employee = authenticate_user();
+    $user = authenticate_user();
 
     $startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
     $endDate = $_GET['end_date'] ?? date('Y-m-d');
 
     $db = get_db_connection();
     $entries = $db->select('time_entries_timetrackpro', '*', [
-        'employee_id' => $employee['id'],
+        'employee_id' => $user['employee_id'],
         'clock_in[>=]' => $startDate . ' 00:00:00',
         'clock_in[<=]' => $endDate . ' 23:59:59',
         'ORDER' => ['clock_in' => 'DESC']
@@ -103,7 +103,7 @@ function handle_get_entries() {
 }
 
 function handle_update_entry() {
-    $employee = authenticate_user();
+    $user = authenticate_user();
     $data = json_decode(file_get_contents('php://input'), true);
 
     if (!isset($data['id'])) {
@@ -113,7 +113,7 @@ function handle_update_entry() {
     $db = get_db_connection();
     $entry = $db->get('time_entries_timetrackpro', '*', [
         'id' => $data['id'],
-        'employee_id' => $employee['id']
+        'employee_id' => $user['employee_id']
     ]);
 
     if (!$entry) {
