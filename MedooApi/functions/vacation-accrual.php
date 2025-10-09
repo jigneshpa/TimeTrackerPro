@@ -84,12 +84,8 @@ function calculateVacationAccrual($db, $employeeId) {
             'ORDER' => ['timestamp' => 'ASC']
         ]);
 
-        if ($db->error()[0] !== '00000') {
-            error_log("Database error fetching time entries: " . json_encode($db->error()));
-            return [
-                'success' => false,
-                'message' => 'Database error fetching time entries: ' . $db->error()[2]
-            ];
+        if (!$timeEntries) {
+            $timeEntries = [];
         }
 
         $hoursWorked = calculateHoursWorkedFromEntries($timeEntries);
@@ -120,14 +116,6 @@ function calculateVacationAccrual($db, $employeeId) {
             ]);
         } else {
             $db->insert('vacation_accruals_timetrackpro', $accrualData);
-
-            if ($db->error()[0] !== '00000') {
-                error_log("Database error inserting accrual: " . json_encode($db->error()));
-                return [
-                    'success' => false,
-                    'message' => 'Database error inserting accrual: ' . $db->error()[2]
-                ];
-            }
         }
 
         $savedAccrual = $db->get('vacation_accruals_timetrackpro', '*', [

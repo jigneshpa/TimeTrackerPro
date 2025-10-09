@@ -127,11 +127,12 @@ CREATE TABLE IF NOT EXISTS role_has_permissions (
 -- Stores employee vacation data linked to users table
 -- User details (name, email, phone, hire_date) are in users table
 -- Role information is in model_has_roles table
+-- NOTE: vacation_days_total and vacation_days_used store HOURS (not days)
 CREATE TABLE employees_timetrackpro (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL UNIQUE,
-    vacation_days_total DECIMAL(5,2) NOT NULL DEFAULT 0.00,
-    vacation_days_used DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+    vacation_days_total DECIMAL(5,2) NOT NULL DEFAULT 0.00 COMMENT 'Total vacation hours (not days)',
+    vacation_days_used DECIMAL(5,2) NOT NULL DEFAULT 0.00 COMMENT 'Used vacation hours (not days)',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
