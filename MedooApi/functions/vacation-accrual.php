@@ -7,7 +7,7 @@ function handle_calculate_vacation_accrual() {
     $result = calculateVacationAccrual($db, $user['employee_id']);
 
     if ($result['success']) {
-        send_success_response($result['message'], $result['data']);
+        send_success_response($result['data'], $result['message']);
     } else {
         send_error_response($result['message'], 500);
     }
@@ -20,9 +20,9 @@ function handle_get_latest_vacation_accrual() {
     $accrual = getLatestVacationAccrual($db, $user['employee_id']);
 
     if ($accrual) {
-        send_success_response('Latest vacation accrual retrieved', $accrual);
+        send_success_response($accrual, 'Latest vacation accrual retrieved');
     } else {
-        send_success_response('No vacation accrual found', null);
+        send_success_response(null, 'No vacation accrual found');
     }
 }
 
@@ -34,7 +34,7 @@ function handle_get_all_vacation_accruals() {
     $result = getAllVacationAccruals($db, $user['employee_id'], $year);
 
     if ($result['success']) {
-        send_success_response('Vacation accruals retrieved', $result['data']);
+        send_success_response($result['data'], 'Vacation accruals retrieved');
     } else {
         send_error_response($result['message'], 500);
     }
