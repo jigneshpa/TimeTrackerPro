@@ -547,3 +547,15 @@ DELIMITER ;
 -- ============================================================================
 -- END OF SCHEMA
 -- ============================================================================
+
+
+CREATE TABLE vacation_accruals_timetrackpro (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    employee_id INT UNSIGNED NOT NULL,
+    accrual_date DATE NOT NULL,
+    hours_worked DECIMAL(10,2) NOT NULL,
+    hours_accrued DECIMAL(10,2) NOT NULL,
+    cumulative_accrued DECIMAL(10,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (employee_id) REFERENCES employees_timetrackpro(id)
+);
