@@ -30,8 +30,9 @@ function handle_get_vacation_requests() {
             $sql = "SELECT CONCAT(u.first_name, ' ', COALESCE(u.last_name, '')) AS approver_name
                     FROM employees_timetrackpro e
                     JOIN users u ON e.user_id = u.id
-                    WHERE e.id = ?";
-            $stmt = $db->query($sql, [$request['approved_by']]);
+                    WHERE e.id = :approved_by";
+            $stmt = $db->pdo->prepare($sql);
+            $stmt->execute(['approved_by' => $request['approved_by']]);
             $approver = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($approver) {
                 $request['approved_by_name'] = $approver['approver_name'];

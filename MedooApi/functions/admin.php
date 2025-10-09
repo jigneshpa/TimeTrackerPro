@@ -368,9 +368,10 @@ function handle_get_all_vacation_requests() {
             u.employee_code AS employee_number
         FROM employees_timetrackpro e
         JOIN users u ON e.user_id = u.id
-        WHERE e.id = ?";
+        WHERE e.id = :employee_id";
 
-        $stmt = $db->query($sql, [$request['employee_id']]);
+        $stmt = $db->pdo->prepare($sql);
+        $stmt->execute(['employee_id' => $request['employee_id']]);
         $employee = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($employee) {
@@ -379,7 +380,8 @@ function handle_get_all_vacation_requests() {
         }
 
         if ($request['approved_by']) {
-            $stmt = $db->query($sql, [$request['approved_by']]);
+            $stmt = $db->pdo->prepare($sql);
+            $stmt->execute(['employee_id' => $request['approved_by']]);
             $approver = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($approver) {
                 $request['approved_by_name'] = $approver['employee_name'];
