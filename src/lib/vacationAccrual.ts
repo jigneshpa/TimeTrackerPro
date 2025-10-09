@@ -54,7 +54,7 @@ async function fetchAPI<T>(
   return data;
 }
 
-export async function calculateAndUpdateVacationAccrual(employeeId: string): Promise<void> {
+export async function calculateAndUpdateVacationAccrual(employeeId: string | number): Promise<void> {
   try {
     console.log('[VacationAccrual] Starting accrual calculation for employee:', employeeId);
 
@@ -74,7 +74,7 @@ export async function calculateAndUpdateVacationAccrual(employeeId: string): Pro
   }
 }
 
-export async function getLatestVacationAccrual(employeeId: string): Promise<VacationAccrual | null> {
+export async function getLatestVacationAccrual(employeeId: string | number): Promise<VacationAccrual | null> {
   try {
     const response = await fetchAPI<VacationAccrual>(
       '/api/vacation/accrual/latest',
@@ -92,7 +92,7 @@ export async function getLatestVacationAccrual(employeeId: string): Promise<Vaca
   }
 }
 
-export async function getAllVacationAccruals(employeeId: string, year?: number): Promise<VacationAccrual[]> {
+export async function getAllVacationAccruals(employeeId: string | number, year?: number): Promise<VacationAccrual[]> {
   try {
     let endpoint = '/api/vacation/accrual/all';
     if (year) {

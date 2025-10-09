@@ -57,6 +57,13 @@ function getLatestVacationAccrual($db, $employeeId) {
 
 function calculateVacationAccrual($db, $employeeId) {
     try {
+        if (!$employeeId) {
+            return [
+                'success' => false,
+                'message' => 'Employee ID is required'
+            ];
+        }
+
         $currentYear = date('Y');
         $today = date('Y-m-d');
         $startDate = "$currentYear-01-01";
@@ -77,6 +84,14 @@ function calculateVacationAccrual($db, $employeeId) {
             'ORDER' => ['timestamp' => 'ASC']
         ]);
 
+        if ($db->error()[0] !== '00000') {
+            error_log("Database error fetching time entries: " . json_encode($db->error()));
+            return [
+                'success' => false,
+                'message' => 'Database error fetching time entries: ' . $db->error()[2]
+            ];
+        }
+
         $hoursWorked = calculateHoursWorkedFromEntries($timeEntries);
         $hoursAccrued = floor($hoursWorked / 26);
         $cumulativeAccrued = $hoursAccrued;
@@ -90,22 +105,36 @@ function calculateVacationAccrual($db, $employeeId) {
         ];
 
         $existing = $db->get('vacation_accruals_timetrackpro', 'id', [
-            'employee_id' => $employeeId,
-            'accrual_date' => $today
+            'AND' => [
+                'employee_id' => $employeeId,
+                'accrual_date' => $today
+            ]
         ]);
 
         if ($existing) {
             $db->update('vacation_accruals_timetrackpro', $accrualData, [
-                'employee_id' => $employeeId,
-                'accrual_date' => $today
+                'AND' => [
+                    'employee_id' => $employeeId,
+                    'accrual_date' => $today
+                ]
             ]);
         } else {
             $db->insert('vacation_accruals_timetrackpro', $accrualData);
+
+            if ($db->error()[0] !== '00000') {
+                error_log("Database error inserting accrual: " . json_encode($db->error()));
+                return [
+                    'success' => false,
+                    'message' => 'Database error inserting accrual: ' . $db->error()[2]
+                ];
+            }
         }
 
         $savedAccrual = $db->get('vacation_accruals_timetrackpro', '*', [
-            'employee_id' => $employeeId,
-            'accrual_date' => $today
+            'AND' => [
+                'employee_id' => $employeeId,
+                'accrual_date' => $today
+            ]
         ]);
 
         return [
