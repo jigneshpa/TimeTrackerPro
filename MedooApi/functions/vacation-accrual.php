@@ -1,10 +1,10 @@
 <?php
 
 function handle_calculate_vacation_accrual() {
-    $employee = verify_token();
-    $db = get_db();
+    $user = authenticate_user();
+    $db = get_db_connection();
 
-    $result = calculateVacationAccrual($db, $employee['id']);
+    $result = calculateVacationAccrual($db, $user['employee_id']);
 
     if ($result['success']) {
         send_success_response($result['message'], $result['data']);
@@ -14,10 +14,10 @@ function handle_calculate_vacation_accrual() {
 }
 
 function handle_get_latest_vacation_accrual() {
-    $employee = verify_token();
-    $db = get_db();
+    $user = authenticate_user();
+    $db = get_db_connection();
 
-    $accrual = getLatestVacationAccrual($db, $employee['id']);
+    $accrual = getLatestVacationAccrual($db, $user['employee_id']);
 
     if ($accrual) {
         send_success_response('Latest vacation accrual retrieved', $accrual);
@@ -27,11 +27,11 @@ function handle_get_latest_vacation_accrual() {
 }
 
 function handle_get_all_vacation_accruals() {
-    $employee = verify_token();
-    $db = get_db();
+    $user = authenticate_user();
+    $db = get_db_connection();
 
     $year = isset($_GET['year']) ? intval($_GET['year']) : null;
-    $result = getAllVacationAccruals($db, $employee['id'], $year);
+    $result = getAllVacationAccruals($db, $user['employee_id'], $year);
 
     if ($result['success']) {
         send_success_response('Vacation accruals retrieved', $result['data']);
