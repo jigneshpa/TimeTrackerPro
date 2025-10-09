@@ -17,7 +17,7 @@ interface VacationRequest {
   employee_name?: string;
   start_date: string;
   end_date: string;
-  hours: number;
+  days_requested: number;
   status: 'pending' | 'approved' | 'denied';
   created_at: string;
 }
@@ -71,15 +71,17 @@ const VacationManagement: React.FC = () => {
     }
   };
 
-  const handleApproveRequest = async (requestId: string, employeeId: string, hours: number) => {
+  const handleApproveRequest = async (requestId: string, employeeId: string, days_requested: number) => {
     try {
       const response = await approveVacation(requestId);
       if (response.success) {
+        alert('Vacation request approved successfully');
         await fetchVacationRequests();
         await fetchVacationRecords();
       }
     } catch (error) {
       console.error('Error approving request:', error);
+      alert('Failed to approve vacation request');
     }
   };
 
@@ -87,10 +89,12 @@ const VacationManagement: React.FC = () => {
     try {
       const response = await denyVacation(requestId);
       if (response.success) {
+        alert('Vacation request denied');
         await fetchVacationRequests();
       }
     } catch (error) {
       console.error('Error denying request:', error);
+      alert('Failed to deny vacation request');
     }
   };
 
@@ -245,7 +249,7 @@ const VacationManagement: React.FC = () => {
                             {new Date(request.start_date).toLocaleDateString()} - {new Date(request.end_date).toLocaleDateString()}
                           </p>
                           <p className="text-sm font-semibold text-blue-600">
-                            {request.hours} hours ({Math.ceil(request.hours / 8)} work days)
+                            {request.days_requested} hours ({Math.ceil(request.days_requested / 8)} work days)
                           </p>
                           <p className="text-xs text-gray-500">
                             Requested on {new Date(request.created_at).toLocaleDateString()}
@@ -266,7 +270,7 @@ const VacationManagement: React.FC = () => {
                     {request.status === 'pending' && (
                       <div className="flex items-center space-x-2 ml-4">
                         <button
-                          onClick={() => handleApproveRequest(request.id, request.employee_id, request.hours)}
+                          onClick={() => handleApproveRequest(request.id, request.employee_id, request.days_requested)}
                           className="flex items-center space-x-1 bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors"
                         >
                           <Check className="h-4 w-4" />

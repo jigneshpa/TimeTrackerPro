@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, TrendingUp, Clock, Plus } from 'lucide-react';
+import { Calendar, TrendingUp, Clock, Plus, Save, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getLatestVacationAccrual } from '../lib/vacationAccrual';
+import { createVacationRequest } from '../lib/api';
 
 interface VacationData {
   allotted_hours: number;
@@ -75,31 +76,60 @@ const VacationSummary: React.FC = () => {
   const handleSubmitRequest = async () => {
     if (!employee || !newRequest.start_date || newRequest.hours <= 0) return;
 
-    const endDate = calculateEndDate(newRequest.start_date, newRequest.hours);
-
-    const request: VacationRequest = {
-      id: Date.now().toString(),
-      employee_id: employee.id,
-      start_date: newRequest.start_date,
-      end_date: endDate,
-      hours: newRequest.hours,
-      status: 'pending',
-      created_at: new Date().toISOString(),
-    };
+    const endDateFormatted = calculateEndDateForDB(newRequest.start_date, newRequest.hours);
 
     try {
-      // Vacation request submission would go to database here
-      alert('Vacation request feature will be implemented with the vacation management module');
-      setShowRequestForm(false);
-      setNewRequest({ start_date: '', end_date: '', hours: 8 });
+      const response = await createVacationRequest({
+        start_date: newRequest.start_date,
+        end_date: endDateFormatted,
+        days_requested: newRequest.hours
+      });
+
+      if (response.success) {
+        alert('Vacation request submitted successfully! Waiting for admin approval.');
+        setShowRequestForm(false);
+        setNewRequest({ start_date: '', end_date: '', hours: 8 });
+        fetchVacationRequests();
+      } else {
+        alert('Error: ' + (response.message || 'Failed to submit request'));
+      }
     } catch (error) {
       console.error('Error submitting vacation request:', error);
+      alert('Failed to submit vacation request. Please try again.');
     }
   };
 
   const handleCancelRequest = () => {
     setShowRequestForm(false);
     setNewRequest({ start_date: '', end_date: '', hours: 8 });
+  };
+
+  const calculateEndDateForDB = (startDate: string, hours: number): string => {
+    const start = new Date(startDate);
+    const workDaysNeeded = Math.ceil(hours / 8);
+    let currentDate = new Date(start);
+    let workDaysAdded = 0;
+
+    const savedSettings = localStorage.getItem('demo_system_settings');
+    const settings = savedSettings ? JSON.parse(savedSettings) : null;
+    const year = start.getFullYear().toString();
+    const holidays = settings?.holidays?.[year] || {};
+    const holidayDates = getHolidayDates(year, holidays);
+
+    while (workDaysAdded < workDaysNeeded) {
+      const dayOfWeek = currentDate.getDay();
+      const dateString = currentDate.toISOString().split('T')[0];
+
+      if (dayOfWeek >= 1 && dayOfWeek <= 5 && !holidayDates.includes(dateString)) {
+        workDaysAdded++;
+      }
+
+      if (workDaysAdded < workDaysNeeded) {
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    }
+
+    return currentDate.toISOString().split('T')[0];
   };
 
   const calculateEndDate = (startDate: string, hours: number) => {

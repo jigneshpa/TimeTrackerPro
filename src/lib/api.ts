@@ -189,6 +189,11 @@ export async function getTimeReports(startDate?: string, endDate?: string) {
   return response;
 }
 
+export async function createVacationRequest(requestData: any) {
+  const response = await fetchAPI<any>('/api/vacation/requests', 'POST', requestData);
+  return response;
+}
+
 export async function getAllVacationRequests(status?: string) {
   let endpoint = '/api/admin/vacation-requests';
   if (status) endpoint += `?status=${status}`;
@@ -198,12 +203,12 @@ export async function getAllVacationRequests(status?: string) {
 }
 
 export async function approveVacation(id: string) {
-  const response = await fetchAPI<any>('/api/admin/vacation/approve', 'POST', { id });
+  const response = await fetchAPI<any>('/api/admin/vacation-requests/approve', 'POST', { id });
   return response;
 }
 
 export async function denyVacation(id: string, denialReason?: string) {
-  const response = await fetchAPI<any>('/api/admin/vacation/deny', 'POST', { id, denial_reason: denialReason });
+  const response = await fetchAPI<any>('/api/admin/vacation-requests/deny', 'POST', { id, denial_reason: denialReason });
   return response;
 }
 
