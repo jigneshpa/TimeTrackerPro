@@ -19,6 +19,7 @@ require_once __DIR__ . '/functions/auth.php';
 require_once __DIR__ . '/functions/timeclock.php';
 require_once __DIR__ . '/functions/timeentry-events.php';
 require_once __DIR__ . '/functions/vacation.php';
+require_once __DIR__ . '/functions/vacation-accrual.php';
 require_once __DIR__ . '/functions/admin.php';
 require_once __DIR__ . '/functions/settings.php';
 
@@ -76,6 +77,12 @@ try {
         handle_update_vacation_request();
     } elseif ($path === '/api/vacation/requests/cancel' && $method === 'POST') {
         handle_cancel_vacation_request();
+    } elseif ($path === '/api/vacation/accrual/calculate' && $method === 'POST') {
+        handle_calculate_vacation_accrual();
+    } elseif ($path === '/api/vacation/accrual/latest' && $method === 'GET') {
+        handle_get_latest_vacation_accrual();
+    } elseif ($path === '/api/vacation/accrual/all' && $method === 'GET') {
+        handle_get_all_vacation_accruals();
     } elseif ($path === '/api/admin/employees' && $method === 'GET') {
         handle_get_employees();
     } elseif ($path === '/api/admin/employee' && $method === 'GET') {
