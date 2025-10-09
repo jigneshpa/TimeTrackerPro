@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Calendar, TrendingUp, Clock, Plus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { getTodayTimeEvents, getTimeEvents } from '../lib/api';
+import { getLatestVacationAccrual } from '../lib/vacationAccrual';
 
 interface VacationData {
   allotted_hours: number;
@@ -46,26 +46,18 @@ const VacationSummary: React.FC = () => {
 
   const fetchVacationData = async () => {
     try {
-      // Get employee vacation data from employee record
-      const allotted_hours = employee.vacation_days_total * 8; // Convert days to hours
-      const used_hours = employee.vacation_days_used * 8; // Convert days to hours
+      const latestAccrual = await getLatestVacationAccrual(employee.id);
 
-      // Get time entries for this year to calculate hours worked
-      const currentYear = new Date().getFullYear();
-      const startDate = `${currentYear}-01-01`;
-      const endDate = `${currentYear}-12-31`;
-
-      const response = await getTimeEvents(startDate, endDate);
-      const timeEntries = response.success && response.data ? response.data : [];
-
-      const hoursWorked = calculateHoursWorked(timeEntries);
-      const accruedHours = calculateAccruedHours(hoursWorked);
+      const allotted_hours = (employee.vacation_days_total || 0) * 8;
+      const used_hours = (employee.vacation_days_used || 0) * 8;
+      const accrued_hours = latestAccrual?.cumulative_accrued || 0;
+      const hours_worked = latestAccrual?.hours_worked || 0;
 
       setVacationData({
         allotted_hours,
         accrued_hours,
         used_hours,
-        hours_worked_this_year: hoursWorked,
+        hours_worked_this_year: hours_worked,
       });
     } catch (error) {
       console.error('Error fetching vacation data:', error);
@@ -203,57 +195,6 @@ const VacationSummary: React.FC = () => {
     return dates;
   };
 
-  const calculateHoursWorked = (entries: any[]) => {
-    let totalHours = 0;
-
-    // Process time entry events
-    if (!entries || entries.length === 0) return 0;
-
-    let clockInTime: number | null = null;
-    let lunchOutTime: number | null = null;
-    let unpaidOutTime: number | null = null;
-
-    entries.forEach((entry) => {
-      const timestamp = new Date(entry.timestamp).getTime();
-
-      switch (entry.entry_type) {
-        case 'clock_in':
-          clockInTime = timestamp;
-          break;
-        case 'clock_out':
-          if (clockInTime) {
-            totalHours += (timestamp - clockInTime) / (1000 * 60 * 60);
-            clockInTime = null;
-          }
-          break;
-        case 'lunch_out':
-          lunchOutTime = timestamp;
-          break;
-        case 'lunch_in':
-          if (lunchOutTime) {
-            totalHours -= (timestamp - lunchOutTime) / (1000 * 60 * 60);
-            lunchOutTime = null;
-          }
-          break;
-        case 'unpaid_out':
-          unpaidOutTime = timestamp;
-          break;
-        case 'unpaid_in':
-          if (unpaidOutTime) {
-            totalHours -= (timestamp - unpaidOutTime) / (1000 * 60 * 60);
-            unpaidOutTime = null;
-          }
-          break;
-      }
-    });
-
-    return Math.max(0, totalHours);
-  };
-
-  const calculateAccruedHours = (hoursWorked: number) => {
-    // Accrue 1 hour of vacation for every 26 hours worked (standard rate)
-    return Math.floor(hoursWorked / 26);
-  };
 
   const availableHours = vacationData.accrued_hours - vacationData.used_hours;
 

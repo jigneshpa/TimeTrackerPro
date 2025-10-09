@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { login, getAuthMe, setToken } from '../lib/api';
+import { calculateAndUpdateVacationAccrual } from '../lib/vacationAccrual';
 
 interface User {
   id: string;
@@ -58,6 +59,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               role: emp.role,
               created_at: emp.created_at
             });
+
+            try {
+              await calculateAndUpdateVacationAccrual(emp.id);
+            } catch (accrualError) {
+              console.error('Vacation accrual calculation error:', accrualError);
+            }
           }
         } catch (error) {
           console.error('Auth error:', error);
@@ -95,6 +102,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setUser(user);
     setEmployee(employee);
+
+    try {
+      await calculateAndUpdateVacationAccrual(userData.id);
+    } catch (accrualError) {
+      console.error('Vacation accrual calculation error:', accrualError);
+    }
   };
 
   const signOut = async () => {
