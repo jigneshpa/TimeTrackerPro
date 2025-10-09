@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS vacation_accruals_timetrackpro (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    employee_id CHAR(36) NOT NULL,
+    employee_id INT UNSIGNED NOT NULL,
     accrual_date DATE NOT NULL,
     hours_worked DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     hours_accrued DECIMAL(10,2) NOT NULL DEFAULT 0.00,
@@ -11,13 +11,13 @@ CREATE TABLE IF NOT EXISTS vacation_accruals_timetrackpro (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-    -- Unique constraint to prevent duplicate entries for same employee on same date
+    -- Prevent duplicate entries for same employee/date
     UNIQUE KEY unique_employee_date (employee_id, accrual_date),
 
-    -- Foreign key to employees table
+    -- Correctly formed foreign key
     FOREIGN KEY (employee_id) REFERENCES employees_timetrackpro(id) ON DELETE CASCADE,
 
-    -- Indexes for performance
+    -- Indexes
     INDEX idx_employee_id (employee_id),
     INDEX idx_accrual_date (accrual_date DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

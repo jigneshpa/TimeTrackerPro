@@ -8,8 +8,8 @@ interface ApiResponse<T = any> {
 }
 
 interface VacationAccrual {
-  id: string;
-  employee_id: string;
+  id: number;
+  employee_id: number;
   accrual_date: string;
   hours_worked: number;
   hours_accrued: number;
