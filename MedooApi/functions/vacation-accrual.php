@@ -39,7 +39,6 @@ function handle_get_all_vacation_accruals() {
         send_error_response($result['message'], 500);
     }
 }
-
 function getLatestVacationAccrual($db, $employeeId) {
     try {
         $accrual = $db->get('vacation_accruals_timetrackpro', '*', [
@@ -47,6 +46,13 @@ function getLatestVacationAccrual($db, $employeeId) {
             'ORDER' => ['accrual_date' => 'DESC'],
             'LIMIT' => 1
         ]);
+
+        if ($accrual) {
+            // Explicitly cast DECIMAL fields to float
+            $accrual['hours_worked'] = isset($accrual['hours_worked']) ? (float)$accrual['hours_worked'] : 0.0;
+            $accrual['hours_accrued'] = isset($accrual['hours_accrued']) ? (float)$accrual['hours_accrued'] : 0.0;
+            $accrual['cumulative_accrued'] = isset($accrual['cumulative_accrued']) ? (float)$accrual['cumulative_accrued'] : 0.0;
+        }
 
         return $accrual ?: null;
     } catch (Exception $e) {
