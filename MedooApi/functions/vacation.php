@@ -54,17 +54,30 @@ function handle_create_vacation_request() {
     }
 
     $db = get_db_connection();
+
+    // Get the latest accrued vacation hours
+    $accrual = $db->get('vacation_accruals_timetrackpro', [
+        'cumulative_accrued'
+    ], [
+        'employee_id' => $user['employee_id'],
+        'ORDER' => ['accrual_date' => 'DESC'],
+        'LIMIT' => 1
+    ]);
+
+    $accruedHours = $accrual ? $accrual['cumulative_accrued'] : 0;
+
+    // Get used hours
     $balance = $db->get('employees_timetrackpro', [
-        'vacation_days_total',
         'vacation_days_used'
     ], [
         'id' => $user['employee_id']
     ]);
 
-    $remainingDays = $balance['vacation_days_total'] - $balance['vacation_days_used'];
+    $usedHours = $balance ? $balance['vacation_days_used'] : 0;
+    $availableHours = $accruedHours - $usedHours;
 
-    if ($data['days_requested'] > $remainingDays) {
-        send_error_response('Insufficient vacation days available', 400);
+    if ($data['days_requested'] > $availableHours) {
+        send_error_response('Insufficient vacation hours available. You have ' . number_format($availableHours, 2) . ' hours available.', 400);
     }
 
     $insertData = [
