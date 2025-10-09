@@ -20,6 +20,7 @@ require_once __DIR__ . '/functions/timeclock.php';
 require_once __DIR__ . '/functions/timeentry-events.php';
 require_once __DIR__ . '/functions/vacation.php';
 require_once __DIR__ . '/functions/admin.php';
+require_once __DIR__ . '/functions/settings.php';
 
 handle_cors();
 
@@ -99,6 +100,28 @@ try {
         handle_get_work_schedules();
     } elseif ($path === '/api/admin/work-schedules' && $method === 'POST') {
         handle_save_work_schedule();
+    } elseif ($path === '/api/admin/settings' && $method === 'GET') {
+        handle_get_all_settings();
+    } elseif ($path === '/api/admin/settings/system' && $method === 'GET') {
+        handle_get_system_settings();
+    } elseif ($path === '/api/admin/settings/system' && $method === 'PUT') {
+        handle_update_system_settings();
+    } elseif ($path === '/api/admin/settings/daily-shifts' && $method === 'GET') {
+        handle_get_daily_shifts();
+    } elseif ($path === '/api/admin/settings/daily-shifts' && $method === 'PUT') {
+        handle_update_daily_shift();
+    } elseif ($path === '/api/admin/settings/daily-shifts/bulk' && $method === 'PUT') {
+        handle_bulk_update_daily_shifts();
+    } elseif ($path === '/api/admin/settings/holidays' && $method === 'GET') {
+        handle_get_holidays();
+    } elseif ($path === '/api/admin/settings/holidays' && $method === 'POST') {
+        handle_create_holiday();
+    } elseif ($path === '/api/admin/settings/holidays' && $method === 'PUT') {
+        handle_update_holiday();
+    } elseif ($path === '/api/admin/settings/holidays' && $method === 'DELETE') {
+        handle_delete_holiday();
+    } elseif ($path === '/api/admin/settings/holidays/bulk' && $method === 'PUT') {
+        handle_bulk_update_holidays();
     } else {
         send_error_response('Endpoint not found', 404);
     }

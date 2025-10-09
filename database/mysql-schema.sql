@@ -220,6 +220,56 @@ CREATE TABLE work_schedules_timetrackpro (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
+-- SYSTEM_SETTINGS TABLE
+-- ============================================================================
+-- Stores global system settings that apply to all employees
+CREATE TABLE IF NOT EXISTS system_settings_timetrackpro (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    setting_key VARCHAR(100) NOT NULL UNIQUE,
+    setting_value TEXT,
+    setting_type ENUM('string', 'number', 'boolean', 'json') NOT NULL DEFAULT 'string',
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_setting_key (setting_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================================
+-- HOLIDAYS TABLE
+-- ============================================================================
+-- Stores company holidays for each year
+CREATE TABLE IF NOT EXISTS holidays_timetrackpro (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    holiday_date DATE NOT NULL,
+    year INT NOT NULL,
+    is_paid BOOLEAN NOT NULL DEFAULT TRUE,
+    is_floating BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_year (year),
+    INDEX idx_holiday_date (holiday_date),
+    UNIQUE KEY unique_name_year (name, year)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================================
+-- DAILY_SHIFT_SETTINGS TABLE
+-- ============================================================================
+-- Stores default shift settings for each day of the week
+CREATE TABLE IF NOT EXISTS daily_shift_settings_timetrackpro (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    day_of_week TINYINT NOT NULL COMMENT '0=Sunday, 1=Monday, ..., 6=Saturday',
+    is_working_day BOOLEAN NOT NULL DEFAULT TRUE,
+    start_time TIME NULL,
+    end_time TIME NULL,
+    lunch_required BOOLEAN NOT NULL DEFAULT FALSE,
+    total_hours DECIMAL(4,2) NULL COMMENT 'Total shift length in hours',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_day (day_of_week)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================================
 -- SAMPLE DATA (Optional - for testing)
 -- ============================================================================
 -- Password for all test users: password
@@ -312,6 +362,46 @@ INSERT INTO model_has_roles (role_id, model_type, model_id) VALUES
 -- Employee user gets Sales role
 INSERT INTO model_has_roles (role_id, model_type, model_id) VALUES
 (3, 'App\\Models\\Iam\\Personnel\\User', 2);
+
+-- ============================================================================
+-- DEFAULT SYSTEM SETTINGS
+-- ============================================================================
+INSERT INTO system_settings_timetrackpro (setting_key, setting_value, setting_type, description) VALUES
+('pay_increment_minutes', '30', 'number', 'Pay increment rounding in minutes'),
+('pay_period_type', 'bi-weekly', 'string', 'Pay period type: weekly, bi-weekly, semi-monthly, monthly'),
+('pay_period_start_date', '2025-01-01', 'string', 'Pay period start date'),
+('default_lunch_duration', '60', 'number', 'Default lunch duration in minutes'),
+('limit_start_time', '0', 'boolean', 'Limit employee start time to scheduled shift start'),
+('limit_end_time', '0', 'boolean', 'Limit employee end time to scheduled shift end'),
+('auto_clock_out_minutes', '60', 'number', 'Auto clock-out minutes after shift end'),
+('first_reminder_minutes', '15', 'number', 'First reminder minutes after shift start'),
+('first_reminder_message', 'Reminder: Please clock in for your shift. Tap/Click to exit now.', 'string', 'First reminder message'),
+('second_reminder_minutes', '60', 'number', 'Second reminder minutes after shift end'),
+('second_reminder_message', 'First reminder: You haven''t clocked-out yet. Please clock-out now or contact your supervisor.', 'string', 'Second reminder message'),
+('auto_clock_out_message', 'You were automatically clocked-out at shift end with lunch deducted. Contact HR if incorrect.', 'string', 'Auto clock-out message');
+
+-- ============================================================================
+-- DEFAULT DAILY SHIFT SETTINGS
+-- ============================================================================
+INSERT INTO daily_shift_settings_timetrackpro (day_of_week, is_working_day, start_time, end_time, lunch_required, total_hours) VALUES
+(1, TRUE, '08:00:00', '17:00:00', TRUE, 9.0),  -- Monday
+(2, TRUE, '08:00:00', '17:00:00', TRUE, 9.0),  -- Tuesday
+(3, TRUE, '08:00:00', '17:00:00', TRUE, 9.0),  -- Wednesday
+(4, TRUE, '08:00:00', '17:00:00', TRUE, 9.0),  -- Thursday
+(5, TRUE, '08:00:00', '17:00:00', TRUE, 9.0),  -- Friday
+(6, FALSE, NULL, NULL, FALSE, 0.0),             -- Saturday
+(0, FALSE, NULL, NULL, FALSE, 0.0);             -- Sunday
+
+-- ============================================================================
+-- DEFAULT HOLIDAYS FOR 2025
+-- ============================================================================
+INSERT INTO holidays_timetrackpro (name, holiday_date, year, is_paid, is_floating) VALUES
+('New Year''s Day', '2025-01-01', 2025, TRUE, FALSE),
+('Memorial Day', '2025-05-26', 2025, TRUE, FALSE),
+('Independence Day', '2025-07-04', 2025, TRUE, FALSE),
+('Labor Day', '2025-09-01', 2025, TRUE, FALSE),
+('Thanksgiving Day', '2025-11-27', 2025, TRUE, FALSE),
+('Christmas Day', '2025-12-25', 2025, TRUE, FALSE);
 
 -- ============================================================================
 -- VIEWS FOR REPORTING
