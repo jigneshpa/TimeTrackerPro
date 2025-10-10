@@ -2,10 +2,15 @@
 
 use Medoo\Medoo;
 
-function get_db_connection() {
+function get_db_connection()
+{
     static $db = null;
 
     if ($db === null) {
+        // --- Set PHP timezone for all date/time functions ---
+        date_default_timezone_set('America/Chicago'); // Central Time (Tennessee)
+
+        // --- Database configuration ---
         $config = [
             'type' => 'mysql',
             'host' => getenv('DB_HOST') ?: 'localhost',
@@ -15,17 +20,30 @@ function get_db_connection() {
             'charset' => 'utf8mb4',
             'collation' => 'utf8mb4_unicode_ci',
             'port' => getenv('DB_PORT') ?: 3306,
+
             'option' => [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
             ],
+
+            // Use a portable timezone offset instead of region name
             'command' => [
-                'SET time_zone = "America/Chicago"' // Central Time (Tennessee)
-            ]
+                'SET time_zone = "-06:00"' // Central Standard Time (safe)
+            ],
         ];
 
-        $db = new Medoo($config);
+        try {
+            $db = new Medoo($config);
+        } catch (PDOException $e) {
+            error_log("Database connection failed: " . $e->getMessage());
+            http_response_code(500);
+            echo json_encode([
+                'error' => true,
+                'message' => 'Database connection failed.'
+            ]);
+            exit;
+        }
     }
 
     return $db;
