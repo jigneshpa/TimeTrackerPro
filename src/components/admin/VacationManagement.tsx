@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, CreditCard as Edit, Save, X, Check, AlertCircle } from 'lucide-react';
 import { getEmployees, getAllVacationRequests, approveVacation, denyVacation, updateEmployee } from '../../lib/api';
 import { formatDate, formatDateTime } from '../../lib/timezone';
+import { getLatestVacationAccrual } from '../../lib/vacationAccrual';
 
 interface VacationRecord {
   id?: string;
@@ -44,14 +45,26 @@ const VacationManagement: React.FC = () => {
     try {
       const response = await getEmployees();
       if (response.success && response.data) {
-        const records: VacationRecord[] = response.data.map((emp: any) => ({
-          id: emp.id,
-          employee_id: emp.id,
-          employee_name: `${emp.first_name} ${emp.last_name}`,
-          allotted_hours: emp.vacation_days_total || 0,
-          accrued_hours: 0,
-          used_hours: emp.vacation_days_used || 0,
-        }));
+        // Fetch accrual data for each employee
+        const recordsPromises = response.data.map(async (emp: any) => {
+          const latestAccrual = await getLatestVacationAccrual(emp.id);
+
+          // Convert vacation days to hours (8 hours per day)
+          const allottedHours = (emp.vacation_days_total || 0) * 8;
+          const usedHours = (emp.vacation_days_used || 0) * 8;
+          const accruedHours = latestAccrual?.cumulative_accrued || 0;
+
+          return {
+            id: emp.id,
+            employee_id: emp.id,
+            employee_name: `${emp.first_name} ${emp.last_name}`,
+            allotted_hours: allottedHours,
+            accrued_hours: accruedHours,
+            used_hours: usedHours,
+          };
+        });
+
+        const records = await Promise.all(recordsPromises);
         setVacationRecords(records);
       }
     } catch (error) {
@@ -155,16 +168,20 @@ const VacationManagement: React.FC = () => {
 
   const saveChanges = async (employeeId: string) => {
     try {
+      // Convert hours back to days for storage (8 hours = 1 day)
       const response = await updateEmployee({
         id: employeeId,
-        vacation_days_total: editValues.allotted_hours,
+        vacation_days_total: editValues.allotted_hours / 8,
+        vacation_days_used: editValues.used_hours / 8,
       });
       if (response.success) {
         await fetchVacationRecords();
         setEditingId(null);
+        alert('Vacation balance updated successfully');
       }
     } catch (error) {
       console.error('Error saving vacation data:', error);
+      alert('Failed to update vacation balance');
     }
   };
 
