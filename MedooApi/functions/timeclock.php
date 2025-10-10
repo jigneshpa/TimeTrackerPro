@@ -1,5 +1,78 @@
 <?php
 
+/**
+ * Get system setting value
+ */
+function get_setting($key, $default = null) {
+    $db = get_db_connection();
+    $setting = $db->get('system_settings_timetrackpro', ['setting_value', 'setting_type'], [
+        'setting_key' => $key
+    ]);
+
+    if (!$setting) {
+        return $default;
+    }
+
+    $value = $setting['setting_value'];
+
+    switch ($setting['setting_type']) {
+        case 'number':
+            return is_numeric($value) ? (float)$value : $default;
+        case 'boolean':
+            return (bool)((int)$value);
+        case 'json':
+            return json_decode($value, true);
+        default:
+            return $value;
+    }
+}
+
+/**
+ * Round time to nearest pay increment
+ * For clock in: round UP to next increment
+ * For clock out: round DOWN to previous increment
+ *
+ * Examples with 15-minute increments:
+ * - Clock in at 8:03 AM -> Rounded to 8:15 AM
+ * - Clock in at 8:16 AM -> Rounded to 8:30 AM
+ * - Clock out at 5:12 PM -> Rounded to 5:00 PM
+ * - Clock out at 5:47 PM -> Rounded to 5:45 PM
+ *
+ * @param string $timestamp The timestamp to round (Y-m-d H:i:s format)
+ * @param bool $isClockIn True to round UP, false to round DOWN
+ * @return string Rounded timestamp (Y-m-d H:i:s format)
+ */
+function apply_pay_increment_rounding($timestamp, $isClockIn = true) {
+    $payIncrements = get_setting('pay_increments', 15);
+
+    $time = strtotime($timestamp);
+    $minutes = (int)date('i', $time);
+    $seconds = (int)date('s', $time);
+
+    // Calculate minutes past the hour including seconds
+    $totalMinutes = $minutes + ($seconds / 60);
+
+    if ($isClockIn) {
+        // Round UP to next increment for clock in
+        $roundedMinutes = ceil($totalMinutes / $payIncrements) * $payIncrements;
+    } else {
+        // Round DOWN to previous increment for clock out
+        $roundedMinutes = floor($totalMinutes / $payIncrements) * $payIncrements;
+    }
+
+    // Create new timestamp with rounded minutes
+    $hour = (int)date('H', $time);
+    $date = date('Y-m-d', $time);
+
+    // Handle overflow to next hour
+    if ($roundedMinutes >= 60) {
+        $hour++;
+        $roundedMinutes -= 60;
+    }
+
+    return sprintf('%s %02d:%02d:00', $date, $hour, $roundedMinutes);
+}
+
 function handle_clock_in() {
     $user = authenticate_user();
     $data = json_decode(file_get_contents('php://input'), true);
@@ -15,9 +88,15 @@ function handle_clock_in() {
         send_error_response('You already have an active time entry', 400);
     }
 
+    // Get current time
+    $currentTime = date('Y-m-d H:i:s');
+
+    // Apply pay increment rounding (round UP for clock in)
+    $roundedTime = apply_pay_increment_rounding($currentTime, true);
+
     $insertData = [
         'employee_id' => $user['employee_id'],
-        'clock_in' => date('Y-m-d H:i:s'),
+        'clock_in' => $roundedTime,
         'notes' => $data['notes'] ?? null,
         'status' => 'active'
     ];
@@ -45,8 +124,14 @@ function handle_clock_out() {
         send_error_response('No active time entry found', 404);
     }
 
+    // Get current time
+    $currentTime = date('Y-m-d H:i:s');
+
+    // Apply pay increment rounding (round DOWN for clock out)
+    $roundedTime = apply_pay_increment_rounding($currentTime, false);
+
     $db->update('time_entries_timetrackpro', [
-        'clock_out' => date('Y-m-d H:i:s'),
+        'clock_out' => $roundedTime,
         'break_duration' => $data['break_duration'] ?? 0,
         'status' => 'completed'
     ], [

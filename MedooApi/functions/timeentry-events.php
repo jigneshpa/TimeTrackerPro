@@ -68,10 +68,23 @@ function handle_create_time_entry_event() {
             break;
     }
 
+    // Get current time
+    $currentTime = date('Y-m-d H:i:s');
+
+    // Apply pay increment rounding based on entry type
+    // Round UP for: clock_in, lunch_in, unpaid_in (starting work/resuming work)
+    // Round DOWN for: clock_out, lunch_out, unpaid_out (stopping work/taking break)
+    $roundUpTypes = ['clock_in', 'lunch_in', 'unpaid_in'];
+    $isClockIn = in_array($data['entry_type'], $roundUpTypes);
+
+    // Use the rounding function from timeclock.php
+    require_once __DIR__ . '/timeclock.php';
+    $roundedTime = apply_pay_increment_rounding($currentTime, $isClockIn);
+
     $insertData = [
         'employee_id' => $user['employee_id'],
         'entry_type' => $data['entry_type'],
-        'timestamp' => date('Y-m-d H:i:s'),
+        'timestamp' => $roundedTime,
         'notes' => $data['notes'] ?? null
     ];
 
