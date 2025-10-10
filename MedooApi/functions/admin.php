@@ -97,7 +97,8 @@ function handle_get_time_reports() {
 
         $vacationHours = 0;
         foreach ($vacationRequests as $req) {
-            $vacationHours += $req['days_requested'] * 8;
+            // days_requested is already in hours, not days
+            $vacationHours += $req['days_requested'];
         }
 
         $fullName = trim($emp['first_name'] . ' ' . ($emp['middle_name'] ?? '') . ' ' . ($emp['last_name'] ?? ''));
