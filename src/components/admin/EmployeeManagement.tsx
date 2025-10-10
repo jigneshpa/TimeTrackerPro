@@ -8,7 +8,7 @@ interface Employee {
   last_name: string;
   email: string;
   role: 'employee' | 'admin';
-  employee_number?: string;
+  employee_code?: string;
   phone?: string;
   hire_date?: string;
   is_active?: boolean;
@@ -105,7 +105,7 @@ const EmployeeManagement: React.FC = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Employee Number</label>
                   <div className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-gray-900">
-                    {viewingEmployee.employee_number || 'Not set'}
+                    {viewingEmployee.employee_code || 'Not set'}
                   </div>
                 </div>
                 <div>
@@ -252,7 +252,7 @@ const EmployeeManagement: React.FC = () => {
                     </span>
                   </td>
                   <td className="py-3 px-4 text-gray-600">
-                    {employee.employee_number || 'Not set'}
+                    {employee.employee_code || 'Not set'}
                   </td>
                   <td className="py-3 px-4">
                     {(employee.vacation_days_total || 0) > 0 ? (
