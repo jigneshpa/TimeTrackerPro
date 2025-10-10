@@ -141,14 +141,19 @@ const SystemSettings: React.FC = () => {
   };
 
   const saveSettings = async () => {
+    console.log('Save Settings button clicked');
+    console.log('Current settings:', settings);
     setSaving(true);
     try {
+      console.log('Calling updateSystemSettings API...');
       const response = await updateSystemSettings(settings);
+      console.log('API Response:', response);
       if (response.success) {
         alert('Settings saved successfully');
         // Also save to localStorage as backup
         localStorage.setItem('demo_system_settings', JSON.stringify(settings));
       } else {
+        console.error('Failed to save settings:', response);
         alert('Failed to save settings: ' + (response.message || 'Unknown error'));
       }
     } catch (error) {
@@ -156,6 +161,7 @@ const SystemSettings: React.FC = () => {
       alert('Error saving settings. Please try again.');
     } finally {
       setSaving(false);
+      console.log('Save operation completed');
     }
   };
 
@@ -413,7 +419,12 @@ const SystemSettings: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-900">System Settings</h2>
         </div>
         <button
-          onClick={saveSettings}
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            saveSettings();
+          }}
           disabled={saving}
           className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
         >
