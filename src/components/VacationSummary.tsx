@@ -3,6 +3,7 @@ import { Calendar, TrendingUp, Clock, Plus, Save, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getLatestVacationAccrual } from '../lib/vacationAccrual';
 import { createVacationRequest } from '../lib/api';
+import { toDateString, formatDate } from '../lib/timezone';
 
 interface VacationData {
   allotted_hours: number;

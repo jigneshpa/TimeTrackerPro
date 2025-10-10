@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Clock, Save, Calendar, Plus, X } from 'lucide-react';
 import { getSystemSettings, updateSystemSettings } from '../../lib/api';
+import { APP_TIMEZONE } from '../../lib/timezone';
 
 const initialDefaultSettings: SystemSettings = {
   pay_increments: 15,
@@ -229,7 +230,7 @@ const SystemSettings: React.FC = () => {
         const may = new Date(y, 4, 31); // May 31
         const lastMonday = new Date(may);
         lastMonday.setDate(31 - (may.getDay() + 6) % 7);
-        return lastMonday.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        return new Intl.DateTimeFormat('en-US', { timeZone: APP_TIMEZONE, month: 'long', day: 'numeric', year: 'numeric' }).format(lastMonday);
       },
       independence_day: (y) => `July 4, ${y}`,
       labor_day: (y) => {
@@ -237,7 +238,7 @@ const SystemSettings: React.FC = () => {
         const sept = new Date(y, 8, 1); // September 1
         const firstMonday = new Date(sept);
         firstMonday.setDate(1 + (8 - sept.getDay()) % 7);
-        return firstMonday.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        return new Intl.DateTimeFormat('en-US', { timeZone: APP_TIMEZONE, month: 'long', day: 'numeric', year: 'numeric' }).format(firstMonday);
       },
       thanksgiving_day: (y) => {
         // Fourth Thursday in November
@@ -246,7 +247,7 @@ const SystemSettings: React.FC = () => {
         firstThursday.setDate(1 + (11 - nov.getDay()) % 7);
         const fourthThursday = new Date(firstThursday);
         fourthThursday.setDate(firstThursday.getDate() + 21);
-        return fourthThursday.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        return new Intl.DateTimeFormat('en-US', { timeZone: APP_TIMEZONE, month: 'long', day: 'numeric', year: 'numeric' }).format(fourthThursday);
       },
       christmas_day: (y) => `December 25, ${y}`,
     };
@@ -381,12 +382,13 @@ const SystemSettings: React.FC = () => {
 
   const formatDisplayDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: APP_TIMEZONE,
       weekday: 'short',
-      month: 'long', 
+      month: 'long',
       day: 'numeric',
       year: 'numeric'
-    });
+    }).format(date);
   };
 
   if (loading) {

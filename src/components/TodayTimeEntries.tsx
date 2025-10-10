@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTimeClock } from '../contexts/TimeClockContext';
 import { Clock, Coffee, Pause, Play, StopCircle } from 'lucide-react';
+import { formatTime as formatTimeTZ, formatDate } from '../lib/timezone';
 
 const TodayTimeEntries: React.FC = () => {
   const { todayEntries } = useTimeClock();
@@ -52,11 +53,7 @@ const TodayTimeEntries: React.FC = () => {
   };
 
   const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
+    return formatTimeTZ(timestamp);
   };
 
   return (
@@ -93,7 +90,7 @@ const TodayTimeEntries: React.FC = () => {
               <div className="text-right">
                 <p className="font-mono text-lg text-gray-900">{formatTime(entry.timestamp)}</p>
                 <p className="text-xs text-gray-500">
-                  {new Date(entry.timestamp).toLocaleDateString()}
+                  {formatDate(entry.timestamp)}
                 </p>
               </div>
             </div>

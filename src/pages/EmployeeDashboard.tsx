@@ -5,6 +5,7 @@ import TimeClockCard from '../components/TimeClockCard';
 import TodayTimeEntries from '../components/TodayTimeEntries';
 import VacationSummary from '../components/VacationSummary';
 import Header from '../components/Header';
+import { formatTime as formatTimeTZ, formatDate } from '../lib/timezone';
 
 const EmployeeDashboard: React.FC = () => {
   const { employee } = useAuth();
@@ -24,21 +25,23 @@ const EmployeeDashboard: React.FC = () => {
   }, []);
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Chicago',
       hour12: true,
       hour: 'numeric',
       minute: '2-digit',
       second: '2-digit',
-    });
+    }).format(date);
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
+  const formatDateDisplay = (date: Date) => {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Chicago',
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric',
-    });
+    }).format(date);
   };
 
   if (!employee) return null;
@@ -51,7 +54,7 @@ const EmployeeDashboard: React.FC = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Welcome, {employee.first_name}!</h1>
           <div className="mt-2 flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-1 sm:space-y-0">
-            <p className="text-xl text-gray-600">{formatDate(currentTime)}</p>
+            <p className="text-xl text-gray-600">{formatDateDisplay(currentTime)}</p>
             <p className="text-2xl font-mono text-blue-600">{formatTime(currentTime)}</p>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, CreditCard as Edit, Save, X, Check, AlertCircle } from 'lucide-react';
 import { getEmployees, getAllVacationRequests, approveVacation, denyVacation, updateEmployee } from '../../lib/api';
+import { formatDate, formatDateTime } from '../../lib/timezone';
 
 interface VacationRecord {
   id?: string;
@@ -246,13 +247,13 @@ const VacationManagement: React.FC = () => {
                         <div>
                           <p className="font-medium text-gray-900">{request.employee_name}</p>
                           <p className="text-sm text-gray-600">
-                            {new Date(request.start_date).toLocaleDateString()} - {new Date(request.end_date).toLocaleDateString()}
+                            {formatDate(request.start_date)} - {formatDate(request.end_date)}
                           </p>
                           <p className="text-sm font-semibold text-blue-600">
                             {request.days_requested} hours ({Math.ceil(request.days_requested / 8)} work days)
                           </p>
                           <p className="text-xs text-gray-500">
-                            Requested on {new Date(request.created_at).toLocaleDateString()}
+                            Requested on {formatDate(request.created_at)}
                           </p>
                         </div>
                         <div>

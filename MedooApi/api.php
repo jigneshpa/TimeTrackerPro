@@ -23,6 +23,9 @@ require_once __DIR__ . '/functions/vacation-accrual.php';
 require_once __DIR__ . '/functions/admin.php';
 require_once __DIR__ . '/functions/settings.php';
 
+// Set default timezone to Central Time (Tennessee)
+date_default_timezone_set('America/Chicago');
+
 handle_cors();
 
 $method = $_SERVER['REQUEST_METHOD'];

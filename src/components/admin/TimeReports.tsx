@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Calendar, Download } from 'lucide-react';
 import { getTimeReports } from '../../lib/api';
+import { toDateString } from '../../lib/timezone';
 
 interface TimeReportData {
   employee_name: string;
@@ -17,13 +18,13 @@ const TimeReports: React.FC = () => {
   const [reportData, setReportData] = useState<TimeReportData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Initialize with current month
+  // Initialize with current month in Tennessee timezone
   const today = new Date();
   const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
   const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
-  const [startDate, setStartDate] = useState(firstDayOfMonth.toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(lastDayOfMonth.toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState(toDateString(firstDayOfMonth));
+  const [endDate, setEndDate] = useState(toDateString(lastDayOfMonth));
 
   const fetchReports = async () => {
     setLoading(true);
@@ -81,7 +82,7 @@ const TimeReports: React.FC = () => {
     ]);
 
     const csvContent = [
-      [`Time Report - ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}`],
+      [`Time Report - ${startDate} to ${endDate}`],
       [],
       headers,
       ...rows,

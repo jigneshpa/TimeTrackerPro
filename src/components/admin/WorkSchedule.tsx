@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, MapPin, CreditCard as Edit, Save, X, Plus, Copy, Trash2, Users } from 'lucide-react';
 import { getEmployees, getWorkSchedules, saveWorkSchedule } from '../../lib/api';
+import { formatDate, APP_TIMEZONE } from '../../lib/timezone';
 
 interface ScheduleTemplate {
   id: string;
@@ -445,27 +446,41 @@ const WorkSchedule: React.FC = () => {
     return dates;
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric' 
-    });
+  const formatDateDisplay = (date: Date) => {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: APP_TIMEZONE,
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    }).format(date);
   };
 
   const getWeekRange = (weekStart: string) => {
     const start = new Date(weekStart);
-    
+
     // Ensure we start on Sunday
     const currentDay = start.getDay();
     if (currentDay !== 0) {
       start.setDate(start.getDate() - currentDay);
     }
-    
+
     const end = new Date(start);
     end.setDate(start.getDate() + 6); // Sunday + 6 days = Saturday
-    
-    return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+
+    const startFormatted = new Intl.DateTimeFormat('en-US', {
+      timeZone: APP_TIMEZONE,
+      month: 'short',
+      day: 'numeric'
+    }).format(start);
+
+    const endFormatted = new Intl.DateTimeFormat('en-US', {
+      timeZone: APP_TIMEZONE,
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    }).format(end);
+
+    return `${startFormatted} - ${endFormatted}`;
   };
 
   const getEmployeeTotalHours = (employeeId: string) => {
@@ -725,10 +740,10 @@ const WorkSchedule: React.FC = () => {
                       <th key={index} className="text-center py-4 px-3 font-medium text-gray-900 bg-gray-50 min-w-[140px]">
                         <div>
                           <div className="text-sm font-semibold">
-                            {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                            {new Intl.DateTimeFormat('en-US', { timeZone: APP_TIMEZONE, weekday: 'short' }).format(date)}
                           </div>
                           <div className="text-xs text-gray-600">
-                            {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            {new Intl.DateTimeFormat('en-US', { timeZone: APP_TIMEZONE, month: 'short', day: 'numeric' }).format(date)}
                           </div>
                         </div>
                       </th>
