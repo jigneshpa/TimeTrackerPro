@@ -17,7 +17,19 @@ function handle_get_latest_vacation_accrual() {
     $user = authenticate_user();
     $db = get_db_connection();
 
-    $accrual = getLatestVacationAccrual($db, $user['employee_id']);
+    // Allow admins to query any employee, otherwise use authenticated user's employee_id
+    $employeeId = isset($_GET['employee_id']) ? $_GET['employee_id'] : $user['employee_id'];
+
+    // If querying another employee's data, require admin access
+    if ($employeeId != $user['employee_id']) {
+        $adminRoles = ['admin', 'master_admin'];
+        $hasAdminRole = !empty(array_intersect($user['role_short_names'], $adminRoles));
+        if (!$hasAdminRole) {
+            send_error_response('Admin access required to view other employees vacation accruals', 403);
+        }
+    }
+
+    $accrual = getLatestVacationAccrual($db, $employeeId);
 
     if ($accrual) {
         send_success_response($accrual, 'Latest vacation accrual retrieved');

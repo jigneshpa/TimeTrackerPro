@@ -77,7 +77,7 @@ export async function calculateAndUpdateVacationAccrual(employeeId: string | num
 export async function getLatestVacationAccrual(employeeId: string | number): Promise<VacationAccrual | null> {
   try {
     const response = await fetchAPI<VacationAccrual>(
-      '/api/vacation/accrual/latest',
+      `/api/vacation/accrual/latest?employee_id=${employeeId}`,
       'GET'
     );
 
