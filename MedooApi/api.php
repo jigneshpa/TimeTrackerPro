@@ -26,6 +26,12 @@ require_once __DIR__ . '/functions/settings.php';
 handle_cors();
 
 $method = $_SERVER['REQUEST_METHOD'];
+
+// Allow method override via query parameter
+if (isset($_GET['method'])) {
+    $method = strtoupper($_GET['method']);
+}
+
 $uri = $_SERVER['REQUEST_URI'];
 $path = parse_url($uri, PHP_URL_PATH);
 $path = str_replace('/MedooApi/api.php', '', $path);

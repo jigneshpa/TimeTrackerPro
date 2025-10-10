@@ -45,6 +45,11 @@ async function fetchAPI<T>(
   const [basePath, queryString] = endpoint.split('?');
   let url = `${API_BASE}?endpoint=${encodeURIComponent(basePath)}`;
 
+  // Add method to URL for non-GET requests
+  if (method !== 'GET') {
+    url += `&method=${method}`;
+  }
+
   // Append any additional query params
   if (queryString) {
     url += `&${queryString}`;
