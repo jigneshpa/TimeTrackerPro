@@ -19,6 +19,9 @@ function get_db_connection() {
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
+            ],
+            'command' => [
+                'SET time_zone = "America/Chicago"' // Central Time (Tennessee)
             ]
         ];
 

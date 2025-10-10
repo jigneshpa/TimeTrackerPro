@@ -93,6 +93,12 @@ function handle_create_time_entry_event() {
 
     $entry = $db->get('time_entry_events_timetrackpro', '*', ['id' => $entryId]);
 
+    // Convert timestamp to ISO 8601 format with timezone
+    if ($entry && isset($entry['timestamp'])) {
+        $dt = new DateTime($entry['timestamp'], new DateTimeZone('America/Chicago'));
+        $entry['timestamp'] = $dt->format('c'); // ISO 8601 format with timezone
+    }
+
     send_success_response($entry, 'Time entry event created successfully', 201);
 }
 
@@ -106,6 +112,14 @@ function handle_get_today_time_events() {
         'timestamp[<=]' => date('Y-m-d 23:59:59'),
         'ORDER' => ['timestamp' => 'ASC']
     ]);
+
+    // Convert timestamps to ISO 8601 format with timezone
+    foreach ($entries as &$entry) {
+        if (isset($entry['timestamp'])) {
+            $dt = new DateTime($entry['timestamp'], new DateTimeZone('America/Chicago'));
+            $entry['timestamp'] = $dt->format('c');
+        }
+    }
 
     send_success_response($entries);
 }
@@ -123,6 +137,14 @@ function handle_get_time_events() {
         'timestamp[<=]' => $endDate . ' 23:59:59',
         'ORDER' => ['timestamp' => 'ASC']
     ]);
+
+    // Convert timestamps to ISO 8601 format with timezone
+    foreach ($entries as &$entry) {
+        if (isset($entry['timestamp'])) {
+            $dt = new DateTime($entry['timestamp'], new DateTimeZone('America/Chicago'));
+            $entry['timestamp'] = $dt->format('c');
+        }
+    }
 
     send_success_response($entries);
 }
