@@ -139,9 +139,19 @@ function handle_get_employees() {
         e.id AS employee_id,
         e.vacation_days_total,
         e.vacation_days_used,
+        va.cumulative_accrued AS vacation_hours_accrued,
         GROUP_CONCAT(r.short_name ORDER BY r.id SEPARATOR ', ') AS role_short_names
     FROM users u
     LEFT JOIN employees_timetrackpro e ON e.user_id = u.id
+    LEFT JOIN (
+        SELECT employee_id, cumulative_accrued
+        FROM vacation_accruals_timetrackpro va1
+        WHERE accrual_date = (
+            SELECT MAX(accrual_date)
+            FROM vacation_accruals_timetrackpro va2
+            WHERE va2.employee_id = va1.employee_id
+        )
+    ) va ON va.employee_id = e.id
     LEFT JOIN model_has_roles mhr ON mhr.model_id = u.id AND mhr.model_type = 'App\\\\Models\\\\Iam\\\\Personnel\\\\User'
     LEFT JOIN roles r ON r.id = mhr.role_id
     GROUP BY u.id
@@ -155,6 +165,11 @@ function handle_get_employees() {
         $adminRoles = ['admin', 'master_admin'];
         $rolesArray = array_filter(array_map('trim', explode(',', $roleNames)));
         $isAdmin = !empty(array_intersect($rolesArray, $adminRoles));
+
+        // Use accrued hours if available, otherwise fall back to vacation_days_total
+        $accruedHours = $emp['vacation_hours_accrued'] ?? 0;
+        $usedHours = $emp['vacation_days_used'] ?? 0;
+        $remainingHours = max(0, $accruedHours - $usedHours);
 
         $result[] = [
             'id' => $emp['employee_id'],
@@ -170,8 +185,9 @@ function handle_get_employees() {
             'role_short_names' => $roleNames,
             'is_active' => $emp['status'] === 'Active',
             'vacation_days_total' => $emp['vacation_days_total'] ?? 0,
-            'vacation_days_used' => $emp['vacation_days_used'] ?? 0,
-            'vacation_days_remaining' => ($emp['vacation_days_total'] ?? 0) - ($emp['vacation_days_used'] ?? 0)
+            'vacation_days_used' => $usedHours,
+            'vacation_days_remaining' => $remainingHours,
+            'vacation_hours_accrued' => $accruedHours
         ];
     }
 

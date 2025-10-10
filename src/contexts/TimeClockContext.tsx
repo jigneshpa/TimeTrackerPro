@@ -119,8 +119,12 @@ export const TimeClockProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       const response = await createTimeEntryEvent(entryType);
       if (response.success) {
+        // Refresh entries which will recalculate status
         await refreshEntries();
-        await loadCurrentStatus();
+        // Small delay to ensure state updates
+        setTimeout(() => {
+          refreshEntries();
+        }, 100);
       }
     } catch (error: any) {
       console.error('Error creating time entry:', error);
