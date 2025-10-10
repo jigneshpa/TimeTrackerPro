@@ -47,9 +47,9 @@ const VacationManagement: React.FC = () => {
           id: emp.id,
           employee_id: emp.id,
           employee_name: `${emp.first_name} ${emp.last_name}`,
-          allotted_hours: (emp.vacation_days_total || 0) * 8,
+          allotted_hours: emp.vacation_days_total || 0,
           accrued_hours: 0,
-          used_hours: (emp.vacation_days_used || 0) * 8,
+          used_hours: emp.vacation_days_used || 0,
         }));
         setVacationRecords(records);
       }
@@ -156,7 +156,7 @@ const VacationManagement: React.FC = () => {
     try {
       const response = await updateEmployee({
         id: employeeId,
-        vacation_days_total: Math.round(editValues.allotted_hours / 8),
+        vacation_days_total: editValues.allotted_hours,
       });
       if (response.success) {
         await fetchVacationRecords();

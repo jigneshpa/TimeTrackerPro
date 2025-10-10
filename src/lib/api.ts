@@ -222,6 +222,21 @@ export async function saveWorkSchedule(scheduleData: any) {
   return response;
 }
 
+export async function getAllSettings() {
+  const response = await fetchAPI<any>('/api/admin/settings', 'GET');
+  return response;
+}
+
+export async function getSystemSettings() {
+  const response = await fetchAPI<any>('/api/admin/settings/system', 'GET');
+  return response;
+}
+
+export async function updateSystemSettings(settings: any) {
+  const response = await fetchAPI<any>('/api/admin/settings/system', 'PUT', settings);
+  return response;
+}
+
 export const api = {
   setToken,
   login,
@@ -241,4 +256,7 @@ export const api = {
   denyVacation,
   getWorkSchedules,
   saveWorkSchedule,
+  getAllSettings,
+  getSystemSettings,
+  updateSystemSettings,
 };

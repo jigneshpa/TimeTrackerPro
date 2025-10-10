@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Clock, Save, Calendar, Plus, X } from 'lucide-react';
+import { getSystemSettings, updateSystemSettings } from '../../lib/api';
 
 const initialDefaultSettings: SystemSettings = {
   pay_increments: 15,
@@ -99,7 +100,24 @@ const SystemSettings: React.FC = () => {
 
   const fetchSettings = async () => {
     try {
-      // Load settings from localStorage for demo
+      const response = await getSystemSettings();
+      if (response.success && response.data) {
+        setSettings({
+          ...initialDefaultSettings,
+          ...response.data,
+          holidays: {
+            ...initialDefaultSettings.holidays,
+            ...(response.data.holidays || {})
+          },
+          daily_shifts: {
+            ...initialDefaultSettings.daily_shifts,
+            ...(response.data.daily_shifts || {})
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      // Fallback to localStorage if API fails
       const savedSettings = localStorage.getItem('demo_system_settings');
       if (savedSettings) {
         const parsedSettings = JSON.parse(savedSettings);
@@ -116,8 +134,6 @@ const SystemSettings: React.FC = () => {
           }
         });
       }
-    } catch (error) {
-      console.error('Error fetching settings:', error);
     } finally {
       setLoading(false);
     }
@@ -126,10 +142,17 @@ const SystemSettings: React.FC = () => {
   const saveSettings = async () => {
     setSaving(true);
     try {
-      // Save to localStorage for demo
-      localStorage.setItem('demo_system_settings', JSON.stringify(settings));
+      const response = await updateSystemSettings(settings);
+      if (response.success) {
+        alert('Settings saved successfully');
+        // Also save to localStorage as backup
+        localStorage.setItem('demo_system_settings', JSON.stringify(settings));
+      } else {
+        alert('Failed to save settings: ' + (response.message || 'Unknown error'));
+      }
     } catch (error) {
       console.error('Error saving settings:', error);
+      alert('Error saving settings. Please try again.');
     } finally {
       setSaving(false);
     }
