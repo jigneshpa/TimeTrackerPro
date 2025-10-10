@@ -49,9 +49,10 @@ const VacationManagement: React.FC = () => {
         const recordsPromises = response.data.map(async (emp: any) => {
           const latestAccrual = await getLatestVacationAccrual(emp.id);
 
-          // Convert vacation days to hours (8 hours per day)
-          const allottedHours = (emp.vacation_days_total || 0) * 8;
-          const usedHours = (emp.vacation_days_used || 0) * 8;
+          // Note: vacation_days_total and vacation_days_used are ALREADY in hours (not days)
+          // despite the misleading field names
+          const allottedHours = emp.vacation_days_total || 0;
+          const usedHours = emp.vacation_days_used || 0;
           const accruedHours = latestAccrual?.cumulative_accrued || 0;
 
           return {
@@ -168,11 +169,12 @@ const VacationManagement: React.FC = () => {
 
   const saveChanges = async (employeeId: string) => {
     try {
-      // Convert hours back to days for storage (8 hours = 1 day)
+      // Note: vacation_days_total and vacation_days_used are stored as hours (not days)
+      // despite the misleading field names - so we pass hours directly
       const response = await updateEmployee({
         id: employeeId,
-        vacation_days_total: editValues.allotted_hours / 8,
-        vacation_days_used: editValues.used_hours / 8,
+        vacation_days_total: editValues.allotted_hours,
+        vacation_days_used: editValues.used_hours,
       });
       if (response.success) {
         await fetchVacationRecords();

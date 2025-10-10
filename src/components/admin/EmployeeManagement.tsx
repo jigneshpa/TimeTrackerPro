@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Users, Plus, Eye } from 'lucide-react';
 import { getEmployees } from '../../lib/api';
+import { getLatestVacationAccrual } from '../../lib/vacationAccrual';
 
 interface Employee {
   id: string;
@@ -15,6 +16,7 @@ interface Employee {
   vacation_days_total?: number;
   vacation_days_used?: number;
   vacation_days_remaining?: number;
+  vacation_hours_accrued?: number;
   created_at: string;
   updated_at?: string;
 }
@@ -48,8 +50,14 @@ const EmployeeManagement: React.FC = () => {
     }
   };
 
-  const handleViewEmployee = (employee: Employee) => {
-    setViewingEmployee(employee);
+  const handleViewEmployee = async (employee: Employee) => {
+    // Fetch latest accrual data for this employee
+    const latestAccrual = await getLatestVacationAccrual(employee.id);
+    const employeeWithAccrual = {
+      ...employee,
+      vacation_hours_accrued: latestAccrual?.cumulative_accrued || 0
+    };
+    setViewingEmployee(employeeWithAccrual);
     setShowViewDialog(true);
   };
 
@@ -130,13 +138,13 @@ const EmployeeManagement: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Vacation Hours (Annual)
+                    Vacation Hours Accrued
                   </label>
-                  <div className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900">
-                    {viewingEmployee.vacation_days_total || 0} hours
+                  <div className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-blue-600 font-medium">
+                    {viewingEmployee.vacation_hours_accrued || 0} hours
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    ≈ {convertHoursToDays(viewingEmployee.vacation_days_total || 0)} days (8 hours/day)
+                    ≈ {convertHoursToDays(viewingEmployee.vacation_hours_accrued || 0)} days (8 hours/day)
                   </p>
                 </div>
 
@@ -172,10 +180,10 @@ const EmployeeManagement: React.FC = () => {
                     Hours Remaining
                   </label>
                   <div className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-green-600 font-medium">
-                    {viewingEmployee.vacation_days_remaining || 0} hours
+                    {Math.max(0, (viewingEmployee.vacation_hours_accrued || 0) - (viewingEmployee.vacation_days_used || 0))} hours
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    ≈ {convertHoursToDays(viewingEmployee.vacation_days_remaining || 0)} days
+                    ≈ {convertHoursToDays(Math.max(0, (viewingEmployee.vacation_hours_accrued || 0) - (viewingEmployee.vacation_days_used || 0)))} days
                   </p>
                 </div>
               </div>
