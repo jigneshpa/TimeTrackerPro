@@ -71,6 +71,24 @@ function handle_create_time_entry_event() {
     // Get current time
     $currentTime = date('Y-m-d H:i:s');
 
+    // Enforce minimum lunch duration for lunch_in
+    if ($data['entry_type'] === 'lunch_in' && $lastEntry && $lastEntry['entry_type'] === 'lunch_out') {
+        $lunchOutTime = strtotime($lastEntry['timestamp']);
+        $lunchInTime = strtotime($currentTime);
+        $actualLunchMinutes = ($lunchInTime - $lunchOutTime) / 60;
+
+        // Get default lunch duration from settings
+        $defaultLunchDuration = (int)($db->get('system_settings_timetrackpro', 'setting_value', [
+            'setting_key' => 'default_lunch_duration'
+        ]) ?? 60);
+
+        // If actual lunch is less than default, adjust the lunch_in time to enforce minimum
+        if ($actualLunchMinutes < $defaultLunchDuration) {
+            $adjustedLunchInTime = $lunchOutTime + ($defaultLunchDuration * 60);
+            $currentTime = date('Y-m-d H:i:s', $adjustedLunchInTime);
+        }
+    }
+
     // Apply pay increment rounding based on entry type
     // Round UP for: clock_in, lunch_in, unpaid_in (starting work/resuming work)
     // Round DOWN for: clock_out, lunch_out, unpaid_out (stopping work/taking break)
