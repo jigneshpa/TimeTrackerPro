@@ -99,6 +99,29 @@ function handle_create_time_entry_event() {
     require_once __DIR__ . '/timeclock.php';
     $roundedTime = apply_pay_increment_rounding($currentTime, $isClockIn);
 
+    // Prevent breaks/clock_out from being recorded with timestamps that create logical inconsistencies
+    // If starting a break (lunch_out or unpaid_out), ensure it's not earlier than the last clock_in
+    if (in_array($data['entry_type'], ['lunch_out', 'unpaid_out']) && $lastEntry && $lastEntry['entry_type'] === 'clock_in') {
+        $lastClockInTime = strtotime($lastEntry['timestamp']);
+        $breakStartTime = strtotime($roundedTime);
+
+        // If the rounded break time would be before the clock_in, adjust it to match clock_in
+        if ($breakStartTime < $lastClockInTime) {
+            $roundedTime = $lastEntry['timestamp'];
+        }
+    }
+
+    // If clocking out and there's a recent break/lunch return, ensure clock_out is not before that
+    if ($data['entry_type'] === 'clock_out' && $lastEntry && in_array($lastEntry['entry_type'], ['lunch_in', 'unpaid_in', 'clock_in'])) {
+        $lastEntryTime = strtotime($lastEntry['timestamp']);
+        $clockOutTime = strtotime($roundedTime);
+
+        // If the rounded clock_out would be before the last activity, adjust it to match
+        if ($clockOutTime < $lastEntryTime) {
+            $roundedTime = $lastEntry['timestamp'];
+        }
+    }
+
     $insertData = [
         'employee_id' => $user['employee_id'],
         'entry_type' => $data['entry_type'],
