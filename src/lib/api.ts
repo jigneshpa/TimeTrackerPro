@@ -243,7 +243,7 @@ export async function updateSystemSettings(settings: any) {
 }
 
 export async function getEmployeeTimeEvents(employeeId: string, startDate?: string, endDate?: string) {
-  let endpoint = `/api/admin/time-events&employee_id=${employeeId}`;
+  let endpoint = `/api/admin/time-events?employee_id=${employeeId}`;
   if (startDate) endpoint += `&start_date=${startDate}`;
   if (endDate) endpoint += `&end_date=${endDate}`;
 
@@ -267,7 +267,7 @@ export async function createTimeEvent(eventData: any) {
 }
 
 export async function getEmployeeDailyBreakdown(employeeId: string, startDate?: string, endDate?: string) {
-  let endpoint = `/api/admin/daily-breakdown&employee_id=${employeeId}`;
+  let endpoint = `/api/admin/daily-breakdown?employee_id=${employeeId}`;
   if (startDate) endpoint += `&start_date=${startDate}`;
   if (endDate) endpoint += `&end_date=${endDate}`;
 
