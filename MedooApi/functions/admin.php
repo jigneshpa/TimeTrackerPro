@@ -544,3 +544,236 @@ function handle_save_work_schedule() {
 
     send_success_response($schedule, 'Work schedule saved successfully');
 }
+
+function handle_get_employee_time_events() {
+    require_admin();
+
+    if (!isset($_GET['employee_id'])) {
+        send_error_response('Employee ID is required', 400);
+    }
+
+    $employeeId = $_GET['employee_id'];
+    $startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+    $endDate = $_GET['end_date'] ?? date('Y-m-d');
+
+    $db = get_db_connection();
+    $entries = $db->select('time_entry_events_timetrackpro', '*', [
+        'employee_id' => $employeeId,
+        'timestamp[>=]' => $startDate . ' 00:00:00',
+        'timestamp[<=]' => $endDate . ' 23:59:59',
+        'ORDER' => ['timestamp' => 'ASC']
+    ]);
+
+    send_success_response($entries);
+}
+
+function handle_update_time_event() {
+    require_admin();
+    $data = json_decode(file_get_contents('php://input'), true);
+
+    if (!isset($data['id'])) {
+        send_error_response('Event ID is required', 400);
+    }
+
+    $db = get_db_connection();
+    $event = $db->get('time_entry_events_timetrackpro', '*', ['id' => $data['id']]);
+
+    if (!$event) {
+        send_error_response('Event not found', 404);
+    }
+
+    $updateData = [];
+    if (isset($data['entry_type'])) $updateData['entry_type'] = $data['entry_type'];
+    if (isset($data['timestamp'])) $updateData['timestamp'] = $data['timestamp'];
+    if (isset($data['notes'])) $updateData['notes'] = $data['notes'];
+
+    if (!empty($updateData)) {
+        $db->update('time_entry_events_timetrackpro', $updateData, ['id' => $data['id']]);
+    }
+
+    $updatedEvent = $db->get('time_entry_events_timetrackpro', '*', ['id' => $data['id']]);
+
+    send_success_response($updatedEvent, 'Time event updated successfully');
+}
+
+function handle_delete_time_event() {
+    require_admin();
+    $data = json_decode(file_get_contents('php://input'), true);
+
+    if (!isset($data['id'])) {
+        send_error_response('Event ID is required', 400);
+    }
+
+    $db = get_db_connection();
+    $event = $db->get('time_entry_events_timetrackpro', 'id', ['id' => $data['id']]);
+
+    if (!$event) {
+        send_error_response('Event not found', 404);
+    }
+
+    $db->delete('time_entry_events_timetrackpro', ['id' => $data['id']]);
+
+    send_success_response(null, 'Time event deleted successfully');
+}
+
+function handle_create_time_event_admin() {
+    require_admin();
+    $data = json_decode(file_get_contents('php://input'), true);
+
+    $required = ['employee_id', 'entry_type', 'timestamp'];
+    foreach ($required as $field) {
+        if (!isset($data[$field])) {
+            send_error_response("Field '$field' is required", 400);
+        }
+    }
+
+    $validTypes = ['clock_in', 'clock_out', 'lunch_out', 'lunch_in', 'unpaid_out', 'unpaid_in'];
+    if (!in_array($data['entry_type'], $validTypes)) {
+        send_error_response('Invalid entry type', 400);
+    }
+
+    $db = get_db_connection();
+
+    $insertData = [
+        'employee_id' => $data['employee_id'],
+        'entry_type' => $data['entry_type'],
+        'timestamp' => $data['timestamp'],
+        'notes' => $data['notes'] ?? null
+    ];
+
+    $db->insert('time_entry_events_timetrackpro', $insertData);
+    $entryId = $db->id();
+
+    $entry = $db->get('time_entry_events_timetrackpro', '*', ['id' => $entryId]);
+
+    send_success_response($entry, 'Time event created successfully', 201);
+}
+
+function handle_get_employee_daily_breakdown() {
+    require_admin();
+
+    if (!isset($_GET['employee_id'])) {
+        send_error_response('Employee ID is required', 400);
+    }
+
+    $employeeId = $_GET['employee_id'];
+    $startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+    $endDate = $_GET['end_date'] ?? date('Y-m-d');
+
+    $db = get_db_connection();
+    $events = $db->select('time_entry_events_timetrackpro', '*', [
+        'employee_id' => $employeeId,
+        'timestamp[>=]' => $startDate . ' 00:00:00',
+        'timestamp[<=]' => $endDate . ' 23:59:59',
+        'ORDER' => ['timestamp' => 'ASC']
+    ]);
+
+    $dailyData = [];
+
+    foreach ($events as $event) {
+        $date = date('Y-m-d', strtotime($event['timestamp']));
+
+        if (!isset($dailyData[$date])) {
+            $dailyData[$date] = [
+                'date' => $date,
+                'clock_in' => null,
+                'lunch_start' => null,
+                'lunch_end' => null,
+                'unpaid_start' => null,
+                'unpaid_end' => null,
+                'clock_out' => null,
+                'total_hours' => 0,
+                'total_unpaid' => 0,
+                'total_paid' => 0
+            ];
+        }
+
+        $time = date('H:i:s', strtotime($event['timestamp']));
+
+        switch ($event['entry_type']) {
+            case 'clock_in':
+                if (!$dailyData[$date]['clock_in']) {
+                    $dailyData[$date]['clock_in'] = $time;
+                }
+                break;
+            case 'clock_out':
+                $dailyData[$date]['clock_out'] = $time;
+                break;
+            case 'lunch_out':
+                if (!$dailyData[$date]['lunch_start']) {
+                    $dailyData[$date]['lunch_start'] = $time;
+                }
+                break;
+            case 'lunch_in':
+                $dailyData[$date]['lunch_end'] = $time;
+                break;
+            case 'unpaid_out':
+                if (!$dailyData[$date]['unpaid_start']) {
+                    $dailyData[$date]['unpaid_start'] = $time;
+                }
+                break;
+            case 'unpaid_in':
+                $dailyData[$date]['unpaid_end'] = $time;
+                break;
+        }
+    }
+
+    foreach ($dailyData as $date => &$dayData) {
+        $dayEvents = array_filter($events, function($e) use ($date) {
+            return date('Y-m-d', strtotime($e['timestamp'])) === $date;
+        });
+
+        $totalMinutes = 0;
+        $lunchMinutes = 0;
+        $unpaidMinutes = 0;
+
+        $currentClockIn = null;
+        $currentLunchOut = null;
+        $currentUnpaidOut = null;
+
+        foreach ($dayEvents as $event) {
+            $timestamp = strtotime($event['timestamp']);
+
+            switch ($event['entry_type']) {
+                case 'clock_in':
+                    $currentClockIn = $timestamp;
+                    break;
+                case 'clock_out':
+                    if ($currentClockIn) {
+                        $minutes = ($timestamp - $currentClockIn) / 60;
+                        $totalMinutes += $minutes;
+                        $currentClockIn = null;
+                    }
+                    break;
+                case 'lunch_out':
+                    $currentLunchOut = $timestamp;
+                    break;
+                case 'lunch_in':
+                    if ($currentLunchOut) {
+                        $minutes = ($timestamp - $currentLunchOut) / 60;
+                        $lunchMinutes += $minutes;
+                        $currentLunchOut = null;
+                    }
+                    break;
+                case 'unpaid_out':
+                    $currentUnpaidOut = $timestamp;
+                    break;
+                case 'unpaid_in':
+                    if ($currentUnpaidOut) {
+                        $minutes = ($timestamp - $currentUnpaidOut) / 60;
+                        $unpaidMinutes += $minutes;
+                        $currentUnpaidOut = null;
+                    }
+                    break;
+            }
+        }
+
+        $dayData['total_hours'] = round($totalMinutes / 60, 2);
+        $dayData['total_unpaid'] = round(($lunchMinutes + $unpaidMinutes) / 60, 2);
+        $dayData['total_paid'] = round(($totalMinutes - $lunchMinutes - $unpaidMinutes) / 60, 2);
+    }
+
+    $result = array_values($dailyData);
+
+    send_success_response($result);
+}

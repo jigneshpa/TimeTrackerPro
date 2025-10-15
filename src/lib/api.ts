@@ -242,6 +242,39 @@ export async function updateSystemSettings(settings: any) {
   return response;
 }
 
+export async function getEmployeeTimeEvents(employeeId: string, startDate?: string, endDate?: string) {
+  let endpoint = `/api/admin/time-events&employee_id=${employeeId}`;
+  if (startDate) endpoint += `&start_date=${startDate}`;
+  if (endDate) endpoint += `&end_date=${endDate}`;
+
+  const response = await fetchAPI<any>(endpoint, 'GET');
+  return response;
+}
+
+export async function updateTimeEvent(eventData: any) {
+  const response = await fetchAPI<any>('/api/admin/time-events', 'PUT', eventData);
+  return response;
+}
+
+export async function deleteTimeEvent(id: string) {
+  const response = await fetchAPI<any>('/api/admin/time-events', 'DELETE', { id });
+  return response;
+}
+
+export async function createTimeEvent(eventData: any) {
+  const response = await fetchAPI<any>('/api/admin/time-events', 'POST', eventData);
+  return response;
+}
+
+export async function getEmployeeDailyBreakdown(employeeId: string, startDate?: string, endDate?: string) {
+  let endpoint = `/api/admin/daily-breakdown&employee_id=${employeeId}`;
+  if (startDate) endpoint += `&start_date=${startDate}`;
+  if (endDate) endpoint += `&end_date=${endDate}`;
+
+  const response = await fetchAPI<any>(endpoint, 'GET');
+  return response;
+}
+
 export const api = {
   setToken,
   login,
@@ -264,4 +297,9 @@ export const api = {
   getAllSettings,
   getSystemSettings,
   updateSystemSettings,
+  getEmployeeTimeEvents,
+  updateTimeEvent,
+  deleteTimeEvent,
+  createTimeEvent,
+  getEmployeeDailyBreakdown,
 };

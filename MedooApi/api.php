@@ -138,6 +138,16 @@ try {
         handle_delete_holiday();
     } elseif ($path === '/api/admin/settings/holidays/bulk' && $method === 'PUT') {
         handle_bulk_update_holidays();
+    } elseif ($path === '/api/admin/time-events' && $method === 'GET') {
+        handle_get_employee_time_events();
+    } elseif ($path === '/api/admin/time-events' && $method === 'PUT') {
+        handle_update_time_event();
+    } elseif ($path === '/api/admin/time-events' && $method === 'DELETE') {
+        handle_delete_time_event();
+    } elseif ($path === '/api/admin/time-events' && $method === 'POST') {
+        handle_create_time_event_admin();
+    } elseif ($path === '/api/admin/daily-breakdown' && $method === 'GET') {
+        handle_get_employee_daily_breakdown();
     } else {
         send_error_response('Endpoint not found', 404);
     }
