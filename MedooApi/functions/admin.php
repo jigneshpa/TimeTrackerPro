@@ -88,6 +88,10 @@ function handle_get_time_reports() {
         $unpaidHours = round($unpaidMinutes / 60, 2);
         $paidHours = round(($totalMinutes - $lunchMinutes - $unpaidMinutes) / 60, 2);
 
+        // Calculate vacation hours accrued: 1 hour per 26 hours worked
+        $vacationAccrued = round($paidHours / 26, 2);
+
+        // Get approved vacation hours for the date range
         $vacationRequests = $db->select('vacation_requests_timetrackpro', '*', [
             'employee_id' => $emp['employee_id'],
             'start_date[>=]' => $startDate,
@@ -95,10 +99,10 @@ function handle_get_time_reports() {
             'status' => 'approved'
         ]);
 
-        $vacationHours = 0;
+        $approvedVacationHours = 0;
         foreach ($vacationRequests as $req) {
             // days_requested is already in hours, not days
-            $vacationHours += $req['days_requested'];
+            $approvedVacationHours += $req['days_requested'];
         }
 
         $fullName = trim($emp['first_name'] . ' ' . ($emp['middle_name'] ?? '') . ' ' . ($emp['last_name'] ?? ''));
@@ -112,7 +116,8 @@ function handle_get_time_reports() {
             'lunch_hours' => $lunchHours,
             'unpaid_hours' => $unpaidHours,
             'paid_hours' => $paidHours,
-            'vacation_hours' => $vacationHours
+            'vacation_accrued' => $vacationAccrued,
+            'approved_vacation_hours' => $approvedVacationHours
         ];
     }
 

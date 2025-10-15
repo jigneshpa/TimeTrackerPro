@@ -11,7 +11,8 @@ interface TimeReportData {
   lunch_hours: number;
   unpaid_hours: number;
   paid_hours: number;
-  vacation_hours: number;
+  vacation_accrued: number;
+  approved_vacation_hours: number;
 }
 
 interface TimeEvent {
@@ -94,7 +95,8 @@ const TimeReports: React.FC = () => {
       'Lunch Hours',
       'Unpaid Hours',
       'Paid Hours',
-      'Vacation Hours'
+      'Vacation Accrued',
+      'Approved Vacation Hours'
     ];
 
     const rows = reportData.map(report => [
@@ -104,7 +106,8 @@ const TimeReports: React.FC = () => {
       report.lunch_hours.toFixed(2),
       report.unpaid_hours.toFixed(2),
       report.paid_hours.toFixed(2),
-      report.vacation_hours.toFixed(2)
+      report.vacation_accrued.toFixed(2),
+      report.approved_vacation_hours.toFixed(2)
     ]);
 
     const csvContent = [
@@ -116,7 +119,8 @@ const TimeReports: React.FC = () => {
       ['Summary'],
       ['Total Employees', reportData.length],
       ['Total Paid Hours', reportData.reduce((sum, r) => sum + r.paid_hours, 0).toFixed(2)],
-      ['Total Vacation Hours', reportData.reduce((sum, r) => sum + r.vacation_hours, 0).toFixed(2)]
+      ['Total Vacation Accrued', reportData.reduce((sum, r) => sum + r.vacation_accrued, 0).toFixed(2)],
+      ['Total Approved Vacation Hours', reportData.reduce((sum, r) => sum + r.approved_vacation_hours, 0).toFixed(2)]
     ]
       .map(row => row.join(','))
       .join('\n');
@@ -287,7 +291,8 @@ const TimeReports: React.FC = () => {
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Lunch Hours</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Unpaid Hours</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Paid Hours</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Vacation Hours</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Vacation Accrued</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-900">Approved Vacation</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Actions</th>
                 </tr>
               </thead>
@@ -309,7 +314,10 @@ const TimeReports: React.FC = () => {
                       {report.paid_hours.toFixed(2)}
                     </td>
                     <td className="py-3 px-4 text-purple-600 font-semibold">
-                      {report.vacation_hours.toFixed(2)}
+                      {report.vacation_accrued.toFixed(2)}
+                    </td>
+                    <td className="py-3 px-4 text-blue-600 font-semibold">
+                      {report.approved_vacation_hours.toFixed(2)}
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center space-x-3">
