@@ -25,7 +25,14 @@ interface Employee {
 
 interface StoreLocation {
   id: string;
-  name: string;
+  store_name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  zip_code?: string;
+  is_primary: string;
+  status: string;
 }
 
 interface Schedule {
@@ -106,7 +113,7 @@ const WorkSchedule: React.FC = () => {
         setStoreLocations(locResponse.data);
         const filters: { [key: string]: boolean } = {};
         locResponse.data.forEach((loc: StoreLocation) => {
-          filters[loc.name] = true;
+          filters[loc.store_name] = true;
         });
         setStoreFilter(filters);
       }
@@ -120,7 +127,7 @@ const WorkSchedule: React.FC = () => {
         setWeekStartDate(startDate);
         setBulkValues(prev => ({
           ...prev,
-          store_location: locResponse.data?.[0]?.name || 'Main Store'
+          store_location: locResponse.data?.[0]?.store_name || 'Bon Aqua'
         }));
       }
     } catch (error) {
@@ -192,7 +199,7 @@ const WorkSchedule: React.FC = () => {
       start_time: dayShift?.start || '08:00',
       end_time: dayShift?.end || '17:00',
       total_hours: 0,
-      store_location: emp?.primary_location || storeLocations[0]?.name || 'Main Store',
+      store_location: emp?.primary_location || storeLocations[0]?.store_name || 'Bon Aqua',
       is_enabled: false,
       notes: ''
     };
@@ -471,11 +478,11 @@ const WorkSchedule: React.FC = () => {
                 <label key={loc.id} className="flex items-center space-x-2">
                   <input
                     type="checkbox"
-                    checked={storeFilter[loc.name] || false}
-                    onChange={(e) => setStoreFilter({ ...storeFilter, [loc.name]: e.target.checked })}
+                    checked={storeFilter[loc.store_name] || false}
+                    onChange={(e) => setStoreFilter({ ...storeFilter, [loc.store_name]: e.target.checked })}
                     className="h-4 w-4 text-blue-600 rounded"
                   />
-                  <span className="text-sm">{loc.name}</span>
+                  <span className="text-sm">{loc.store_name}</span>
                 </label>
               ))}
             </div>
@@ -559,7 +566,7 @@ const WorkSchedule: React.FC = () => {
                                     className="w-full px-1 py-1 border rounded text-xs"
                                   >
                                     {storeLocations.map(loc => (
-                                      <option key={loc.id} value={loc.name}>{loc.name}</option>
+                                      <option key={loc.id} value={loc.store_name}>{loc.store_name}</option>
                                     ))}
                                   </select>
                                 </>
@@ -658,7 +665,7 @@ const WorkSchedule: React.FC = () => {
                   className="w-full px-3 py-2 border rounded-lg"
                 >
                   {storeLocations.map(loc => (
-                    <option key={loc.id} value={loc.name}>{loc.name}</option>
+                    <option key={loc.id} value={loc.store_name}>{loc.store_name}</option>
                   ))}
                 </select>
               </div>

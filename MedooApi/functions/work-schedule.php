@@ -295,9 +295,19 @@ function handle_copy_week_schedules() {
 function handle_get_store_locations() {
     $db = get_db_connection();
 
-    $locations = $db->select('store_locations_timetrackpro', '*', [
-        'is_active' => true,
-        'ORDER' => ['display_order' => 'ASC']
+    $locations = $db->select('stores', [
+        'id',
+        'store_name',
+        'phone',
+        'email',
+        'address',
+        'city',
+        'zip_code',
+        'is_primary',
+        'status'
+    ], [
+        'status' => 'Active',
+        'ORDER' => ['is_primary' => 'DESC', 'store_name' => 'ASC']
     ]);
 
     send_success_response($locations);
