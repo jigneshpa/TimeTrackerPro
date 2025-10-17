@@ -38,9 +38,21 @@ function get_db_connection()
         } catch (PDOException $e) {
             error_log("Database connection failed: " . $e->getMessage());
             http_response_code(500);
+            header('Content-Type: application/json');
             echo json_encode([
-                'error' => true,
-                'message' => 'Database connection failed.'
+                'success' => false,
+                'message' => 'Database connection failed: ' . $e->getMessage(),
+                'errors' => null
+            ]);
+            exit;
+        } catch (Exception $e) {
+            error_log("Database connection error: " . $e->getMessage());
+            http_response_code(500);
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => false,
+                'message' => 'Database error: ' . $e->getMessage(),
+                'errors' => null
             ]);
             exit;
         }

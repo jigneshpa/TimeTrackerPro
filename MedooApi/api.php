@@ -1,5 +1,11 @@
 <?php
 
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/php_errors.log');
+
 require_once __DIR__ . '/vendor/autoload.php';
 
 if (file_exists(__DIR__ . '/.env')) {
@@ -51,6 +57,12 @@ if (empty($path) || $path === '/MedooApi' || $path === '') {
 }
 
 try {
+    // Test database connection early
+    $testDb = get_db_connection();
+    if (!$testDb) {
+        throw new Exception('Database connection failed');
+    }
+
     if ($path === '/api/auth/login' && $method === 'POST') {
         handle_login();
     } elseif ($path === '/api/auth/register' && $method === 'POST') {
@@ -163,5 +175,30 @@ try {
         send_error_response('Endpoint not found', 404);
     }
 } catch (Exception $e) {
-    send_error_response('Server error: ' . $e->getMessage(), 500);
+    error_log("API Exception: " . $e->getMessage() . " in " . $e->getFile() . " on line " . $e->getLine());
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => false,
+        'message' => 'Server error: ' . $e->getMessage(),
+        'errors' => [
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString()
+        ]
+    ]);
+    exit;
+} catch (Throwable $e) {
+    error_log("API Fatal Error: " . $e->getMessage() . " in " . $e->getFile() . " on line " . $e->getLine());
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => false,
+        'message' => 'Fatal error: ' . $e->getMessage(),
+        'errors' => [
+            'file' => $e->getFile(),
+            'line' => $e->getLine()
+        ]
+    ]);
+    exit;
 }
