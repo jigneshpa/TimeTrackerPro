@@ -144,28 +144,33 @@ const TimeReports: React.FC = () => {
 
     // Get settings or use defaults
     const periodType = settings?.pay_period_type || 'weekly';
-    const startDateStr = settings?.pay_period_start_date || '2025-01-01';
-    const baseStartDate = new Date(startDateStr);
+    const startDateStr = settings?.pay_period_start_date || '2025-01-05';
+    const baseStartDate = new Date(startDateStr + 'T00:00:00'); // Ensure proper date parsing
 
     // Calculate period length in days
     let periodDays = 7; // Default weekly
-    if (periodType === 'bi-weekly') {
+    const normalizedType = periodType.toLowerCase().replace('-', '');
+    if (normalizedType === 'biweekly') {
       periodDays = 14;
-    } else if (periodType === 'semi-monthly') {
+    } else if (normalizedType === 'semimonthly') {
       periodDays = 15;
-    } else if (periodType === 'monthly') {
+    } else if (normalizedType === 'monthly') {
       periodDays = 30;
     }
 
-    // Generate periods: 26 periods back and 26 forward from today
-    for (let i = -26; i <= 26; i++) {
+    // Calculate which period index today falls into
+    const daysSinceStart = Math.floor((currentDate.getTime() - baseStartDate.getTime()) / (1000 * 60 * 60 * 24));
+    const currentPeriodIndex = Math.floor(daysSinceStart / periodDays);
+
+    // Generate periods: 26 periods back and 26 forward from the current period
+    for (let i = currentPeriodIndex - 26; i <= currentPeriodIndex + 26; i++) {
       const periodStart = new Date(baseStartDate);
       periodStart.setDate(baseStartDate.getDate() + (i * periodDays));
 
       const periodEnd = new Date(periodStart);
       periodEnd.setDate(periodStart.getDate() + periodDays - 1);
 
-      const periodLabel = `Period ${i + 27} (${periodStart.getMonth() + 1}/${periodStart.getDate()}/${periodStart.getFullYear()} - ${periodEnd.getMonth() + 1}/${periodEnd.getDate()}/${periodEnd.getFullYear()})`;
+      const periodLabel = `Period ${i + 1} (${periodStart.getMonth() + 1}/${periodStart.getDate()}/${periodStart.getFullYear()} - ${periodEnd.getMonth() + 1}/${periodEnd.getDate()}/${periodEnd.getFullYear()})`;
 
       periods.push({
         label: periodLabel,
