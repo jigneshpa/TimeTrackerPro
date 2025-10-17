@@ -36,6 +36,12 @@ interface DailyBreakdown {
   total_paid: number;
 }
 
+interface PayPeriod {
+  label: string;
+  startDate: string;
+  endDate: string;
+}
+
 const TimeReports: React.FC = () => {
   const [reportData, setReportData] = useState<TimeReportData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +52,8 @@ const TimeReports: React.FC = () => {
   const [dailyBreakdown, setDailyBreakdown] = useState<DailyBreakdown[]>([]);
   const [editingEvent, setEditingEvent] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [payPeriods, setPayPeriods] = useState<PayPeriod[]>([]);
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('');
 
   const today = new Date();
   const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -60,7 +68,11 @@ const TimeReports: React.FC = () => {
       const response = await getTimeReports(startDate, endDate);
 
       if (response.success && response.data) {
-        setReportData(response.data);
+        // Sort employees alphabetically
+        const sortedData = response.data.sort((a: TimeReportData, b: TimeReportData) => {
+          return a.employee_name.toLowerCase().localeCompare(b.employee_name.toLowerCase());
+        });
+        setReportData(sortedData);
       } else {
         setReportData([]);
       }
@@ -79,8 +91,44 @@ const TimeReports: React.FC = () => {
   };
 
   useEffect(() => {
+    generatePayPeriods();
     fetchReports();
   }, []);
+
+  const generatePayPeriods = () => {
+    const periods: PayPeriod[] = [];
+    const currentDate = new Date();
+
+    // Generate 26 pay periods (6 months back and forward)
+    for (let i = -26; i <= 26; i++) {
+      const sunday = new Date(currentDate);
+      sunday.setDate(currentDate.getDate() - currentDate.getDay() + (i * 7));
+
+      const saturday = new Date(sunday);
+      saturday.setDate(sunday.getDate() + 6);
+
+      const periodLabel = `Period ${i + 27} (${sunday.getMonth() + 1}/${sunday.getDate()}/${sunday.getFullYear()} - ${saturday.getMonth() + 1}/${saturday.getDate()}/${saturday.getFullYear()})`;
+
+      periods.push({
+        label: periodLabel,
+        startDate: toDateString(sunday),
+        endDate: toDateString(saturday)
+      });
+    }
+
+    setPayPeriods(periods);
+  };
+
+  const handlePeriodChange = (value: string) => {
+    setSelectedPeriod(value);
+    if (value) {
+      const period = payPeriods.find(p => p.label === value);
+      if (period) {
+        setStartDate(period.startDate);
+        setEndDate(period.endDate);
+      }
+    }
+  };
 
   const handleExportCSV = () => {
     if (!reportData.length) {
@@ -244,6 +292,23 @@ const TimeReports: React.FC = () => {
         <div className="flex items-center space-x-2 mb-3">
           <Calendar className="h-5 w-5 text-gray-600" />
           <label className="text-sm font-medium text-gray-700">Date Range:</label>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 mb-3">
+          <div className="flex-1 min-w-[250px]">
+            <label className="block text-xs text-gray-600 mb-1">Pay Period</label>
+            <select
+              value={selectedPeriod}
+              onChange={(e) => handlePeriodChange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Select a pay period...</option>
+              {payPeriods.map((period) => (
+                <option key={period.label} value={period.label}>
+                  {period.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div>

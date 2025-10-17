@@ -38,7 +38,13 @@ const EmployeeManagement: React.FC = () => {
       setError(null);
       const response = await getEmployees();
       if (response.success && response.data) {
-        setEmployees(response.data);
+        // Sort employees alphabetically by first name, then last name
+        const sortedEmployees = response.data.sort((a: Employee, b: Employee) => {
+          const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
+          const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+        setEmployees(sortedEmployees);
       } else {
         setError(response.message || 'Failed to fetch employees');
       }

@@ -66,6 +66,8 @@ const VacationManagement: React.FC = () => {
         });
 
         const records = await Promise.all(recordsPromises);
+        // Sort employees alphabetically
+        records.sort((a, b) => a.employee_name.toLowerCase().localeCompare(b.employee_name.toLowerCase()));
         setVacationRecords(records);
       }
     } catch (error) {
@@ -79,7 +81,13 @@ const VacationManagement: React.FC = () => {
     try {
       const response = await getAllVacationRequests();
       if (response.success && response.data) {
-        setVacationRequests(response.data);
+        // Sort requests alphabetically by employee name
+        const sortedRequests = response.data.sort((a: VacationRequest, b: VacationRequest) => {
+          const nameA = (a.employee_name || '').toLowerCase();
+          const nameB = (b.employee_name || '').toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+        setVacationRequests(sortedRequests);
       }
     } catch (error) {
       console.error('Error fetching vacation requests:', error);

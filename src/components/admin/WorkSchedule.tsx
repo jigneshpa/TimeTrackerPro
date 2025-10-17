@@ -89,10 +89,10 @@ const WorkSchedule: React.FC = () => {
       return roleMatch && storeMatch;
     })
     .sort((a, b) => {
-    if (a.role !== b.role) {
-      return a.role === 'admin' ? -1 : 1;
-    }
-    return a.name.localeCompare(b.name);
+    // Sort alphabetically by name, then by role
+    const nameCompare = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+    if (nameCompare !== 0) return nameCompare;
+    return a.role.localeCompare(b.role);
   });
 
   useEffect(() => {
