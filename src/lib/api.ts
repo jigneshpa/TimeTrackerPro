@@ -217,16 +217,6 @@ export async function denyVacation(id: string, denialReason?: string) {
   return response;
 }
 
-export async function getWorkSchedules(employeeId: string) {
-  const response = await fetchAPI<any>(`/api/admin/work-schedules&employee_id=${employeeId}`, 'GET');
-  return response;
-}
-
-export async function saveWorkSchedule(scheduleData: any) {
-  const response = await fetchAPI<any>('/api/admin/work-schedules', 'POST', scheduleData);
-  return response;
-}
-
 export async function getAllSettings() {
   const response = await fetchAPI<any>('/api/admin/settings', 'GET');
   return response;
@@ -272,6 +262,54 @@ export async function getEmployeeDailyBreakdown(employeeId: string, startDate?: 
   if (endDate) endpoint += `&end_date=${endDate}`;
 
   const response = await fetchAPI<any>(endpoint, 'GET');
+  return response;
+}
+
+export async function getWorkSchedules(startDate: string, endDate: string, employeeIds?: string[]) {
+  let endpoint = `/api/admin/work-schedules?start_date=${startDate}&end_date=${endDate}`;
+  if (employeeIds && employeeIds.length > 0) {
+    endpoint += `&employee_ids=${employeeIds.join(',')}`;
+  }
+  const response = await fetchAPI<any>(endpoint, 'GET');
+  return response;
+}
+
+export async function saveWorkSchedule(scheduleData: any) {
+  const response = await fetchAPI<any>('/api/admin/work-schedules', 'POST', scheduleData);
+  return response;
+}
+
+export async function bulkSaveWorkSchedules(schedules: any[]) {
+  const response = await fetchAPI<any>('/api/admin/work-schedules/bulk', 'POST', { schedules });
+  return response;
+}
+
+export async function deleteWorkSchedule(id: string) {
+  const response = await fetchAPI<any>(`/api/admin/work-schedules?id=${id}`, 'DELETE');
+  return response;
+}
+
+export async function clearWeekSchedules(startDate: string, endDate: string, employeeIds: string[]) {
+  const response = await fetchAPI<any>('/api/admin/work-schedules/clear-week', 'POST', {
+    start_date: startDate,
+    end_date: endDate,
+    employee_ids: employeeIds
+  });
+  return response;
+}
+
+export async function copyWeekSchedules(sourceStartDate: string, targetStartDate: string, employeeIds: string[], periodDays: number) {
+  const response = await fetchAPI<any>('/api/admin/work-schedules/copy-week', 'POST', {
+    source_start_date: sourceStartDate,
+    target_start_date: targetStartDate,
+    employee_ids: employeeIds,
+    period_days: periodDays
+  });
+  return response;
+}
+
+export async function getStoreLocations() {
+  const response = await fetchAPI<any>('/api/admin/store-locations', 'GET');
   return response;
 }
 

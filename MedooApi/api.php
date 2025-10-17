@@ -22,6 +22,7 @@ require_once __DIR__ . '/functions/vacation.php';
 require_once __DIR__ . '/functions/vacation-accrual.php';
 require_once __DIR__ . '/functions/admin.php';
 require_once __DIR__ . '/functions/settings.php';
+require_once __DIR__ . '/functions/work-schedule.php';
 
 // Set default timezone to Central Time (Tennessee)
 date_default_timezone_set('America/Chicago');
@@ -116,6 +117,16 @@ try {
         handle_get_work_schedules();
     } elseif ($path === '/api/admin/work-schedules' && $method === 'POST') {
         handle_save_work_schedule();
+    } elseif ($path === '/api/admin/work-schedules/bulk' && $method === 'POST') {
+        handle_bulk_save_work_schedules();
+    } elseif ($path === '/api/admin/work-schedules' && $method === 'DELETE') {
+        handle_delete_work_schedule();
+    } elseif ($path === '/api/admin/work-schedules/clear-week' && $method === 'POST') {
+        handle_clear_week_schedules();
+    } elseif ($path === '/api/admin/work-schedules/copy-week' && $method === 'POST') {
+        handle_copy_week_schedules();
+    } elseif ($path === '/api/admin/store-locations' && $method === 'GET') {
+        handle_get_store_locations();
     } elseif ($path === '/api/admin/settings' && $method === 'GET') {
         handle_get_all_settings();
     } elseif ($path === '/api/admin/settings/system' && $method === 'GET') {
