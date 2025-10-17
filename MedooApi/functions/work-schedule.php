@@ -21,7 +21,7 @@ function handle_get_work_schedules() {
         ws.store_location,
         ws.is_enabled,
         ws.notes
-    FROM work_schedules ws
+    FROM work_schedules_timetrackpro ws
     WHERE ws.schedule_date BETWEEN ? AND ?";
 
     $params = [$startDate, $endDate];
@@ -73,14 +73,14 @@ function handle_save_work_schedule() {
     }
 
     // Check if schedule exists
-    $existing = $db->get('work_schedules', 'id', [
+    $existing = $db->get('work_schedules_timetrackpro', 'id', [
         'employee_id' => $employeeId,
         'schedule_date' => $scheduleDate
     ]);
 
     if ($existing) {
         // Update existing schedule
-        $db->update('work_schedules', [
+        $db->update('work_schedules_timetrackpro', [
             'start_time' => $startTime,
             'end_time' => $endTime,
             'total_hours' => $totalHours,
@@ -93,7 +93,7 @@ function handle_save_work_schedule() {
         send_success_response(['id' => $existing, 'message' => 'Schedule updated successfully']);
     } else {
         // Insert new schedule
-        $db->insert('work_schedules', [
+        $db->insert('work_schedules_timetrackpro', [
             'employee_id' => $employeeId,
             'schedule_date' => $scheduleDate,
             'start_time' => $startTime,
@@ -147,17 +147,17 @@ function handle_bulk_save_work_schedules() {
             }
 
             // Check if schedule exists
-            $stmt = $db->pdo->prepare("SELECT id FROM work_schedules WHERE employee_id = ? AND schedule_date = ?");
+            $stmt = $db->pdo->prepare("SELECT id FROM work_schedules_timetrackpro WHERE employee_id = ? AND schedule_date = ?");
             $stmt->execute([$employeeId, $scheduleDate]);
             $existing = $stmt->fetchColumn();
 
             if ($existing) {
                 // Update existing schedule
-                $stmt = $db->pdo->prepare("UPDATE work_schedules SET start_time = ?, end_time = ?, total_hours = ?, store_location = ?, is_enabled = ?, notes = ? WHERE id = ?");
+                $stmt = $db->pdo->prepare("UPDATE work_schedules_timetrackpro SET start_time = ?, end_time = ?, total_hours = ?, store_location = ?, is_enabled = ?, notes = ? WHERE id = ?");
                 $stmt->execute([$startTime, $endTime, $totalHours, $storeLocation, $isEnabled, $notes, $existing]);
             } else {
                 // Insert new schedule
-                $stmt = $db->pdo->prepare("INSERT INTO work_schedules (employee_id, schedule_date, start_time, end_time, total_hours, store_location, is_enabled, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt = $db->pdo->prepare("INSERT INTO work_schedules_timetrackpro (employee_id, schedule_date, start_time, end_time, total_hours, store_location, is_enabled, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmt->execute([$employeeId, $scheduleDate, $startTime, $endTime, $totalHours, $storeLocation, $isEnabled, $notes]);
             }
         }
@@ -178,7 +178,7 @@ function handle_delete_work_schedule() {
     }
 
     $db = get_db_connection();
-    $db->delete('work_schedules', ['id' => $id]);
+    $db->delete('work_schedules_timetrackpro', ['id' => $id]);
 
     send_success_response(['message' => 'Schedule deleted successfully']);
 }
@@ -200,7 +200,7 @@ function handle_clear_week_schedules() {
     }
 
     $placeholders = implode(',', array_fill(0, count($employeeIds), '?'));
-    $sql = "DELETE FROM work_schedules WHERE schedule_date BETWEEN ? AND ? AND employee_id IN ($placeholders)";
+    $sql = "DELETE FROM work_schedules_timetrackpro WHERE schedule_date BETWEEN ? AND ? AND employee_id IN ($placeholders)";
     $params = array_merge([$startDate, $endDate], $employeeIds);
 
     $stmt = $db->pdo->prepare($sql);
@@ -231,7 +231,7 @@ function handle_copy_week_schedules() {
 
     // Get source schedules
     $placeholders = implode(',', array_fill(0, count($employeeIds), '?'));
-    $sql = "SELECT * FROM work_schedules WHERE schedule_date BETWEEN ? AND ? AND employee_id IN ($placeholders)";
+    $sql = "SELECT * FROM work_schedules_timetrackpro WHERE schedule_date BETWEEN ? AND ? AND employee_id IN ($placeholders)";
     $params = array_merge([$sourceStartDate->format('Y-m-d'), $sourceEndDate->format('Y-m-d')], $employeeIds);
 
     $stmt = $db->pdo->prepare($sql);
@@ -252,13 +252,13 @@ function handle_copy_week_schedules() {
             $targetDate->modify('+' . $daysDiff . ' days');
 
             // Check if target schedule exists
-            $stmt = $db->pdo->prepare("SELECT id FROM work_schedules WHERE employee_id = ? AND schedule_date = ?");
+            $stmt = $db->pdo->prepare("SELECT id FROM work_schedules_timetrackpro WHERE employee_id = ? AND schedule_date = ?");
             $stmt->execute([$schedule['employee_id'], $targetDate->format('Y-m-d')]);
             $existing = $stmt->fetchColumn();
 
             if ($existing) {
                 // Update existing
-                $stmt = $db->pdo->prepare("UPDATE work_schedules SET start_time = ?, end_time = ?, total_hours = ?, store_location = ?, is_enabled = ?, notes = ? WHERE id = ?");
+                $stmt = $db->pdo->prepare("UPDATE work_schedules_timetrackpro SET start_time = ?, end_time = ?, total_hours = ?, store_location = ?, is_enabled = ?, notes = ? WHERE id = ?");
                 $stmt->execute([
                     $schedule['start_time'],
                     $schedule['end_time'],
@@ -270,7 +270,7 @@ function handle_copy_week_schedules() {
                 ]);
             } else {
                 // Insert new
-                $stmt = $db->pdo->prepare("INSERT INTO work_schedules (employee_id, schedule_date, start_time, end_time, total_hours, store_location, is_enabled, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt = $db->pdo->prepare("INSERT INTO work_schedules_timetrackpro (employee_id, schedule_date, start_time, end_time, total_hours, store_location, is_enabled, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmt->execute([
                     $schedule['employee_id'],
                     $targetDate->format('Y-m-d'),
@@ -295,7 +295,7 @@ function handle_copy_week_schedules() {
 function handle_get_store_locations() {
     $db = get_db_connection();
 
-    $locations = $db->select('store_locations', '*', [
+    $locations = $db->select('store_locations_timetrackpro', '*', [
         'is_active' => true,
         'ORDER' => ['display_order' => 'ASC']
     ]);
