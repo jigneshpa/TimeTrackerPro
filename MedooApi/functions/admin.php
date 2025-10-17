@@ -15,11 +15,14 @@ function handle_get_time_reports() {
         u.employee_code AS employee_number,
         u.first_name,
         u.middle_name,
-        u.last_name
+        u.last_name,
+        u.role AS employee_role
     FROM employees_timetrackpro e
     JOIN users u ON e.user_id = u.id
     WHERE u.status = 'Active'
-    ORDER BY u.first_name ASC";
+    ORDER BY
+        CASE WHEN u.role = 'admin' THEN 0 ELSE 1 END,
+        u.first_name ASC";
 
     $employees = $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 
@@ -112,6 +115,7 @@ function handle_get_time_reports() {
             'user_id' => $emp['user_id'],
             'employee_name' => $fullName,
             'employee_number' => $emp['employee_number'],
+            'employee_role' => $emp['employee_role'],
             'total_hours' => $totalHours,
             'lunch_hours' => $lunchHours,
             'unpaid_hours' => $unpaidHours,

@@ -8,6 +8,7 @@ interface VacationRecord {
   id?: string;
   employee_id: string;
   employee_name: string;
+  employee_role?: string;
   allotted_hours: number;
   accrued_hours: number;
   used_hours: number;
@@ -59,6 +60,7 @@ const VacationManagement: React.FC = () => {
             id: emp.id,
             employee_id: emp.id,
             employee_name: `${emp.first_name} ${emp.last_name}`,
+            employee_role: emp.role,
             allotted_hours: allottedHours,
             accrued_hours: accruedHours,
             used_hours: usedHours,
@@ -66,8 +68,13 @@ const VacationManagement: React.FC = () => {
         });
 
         const records = await Promise.all(recordsPromises);
-        // Sort employees alphabetically
-        records.sort((a, b) => a.employee_name.toLowerCase().localeCompare(b.employee_name.toLowerCase()));
+        // Sort: Admins first, then alphabetically
+        records.sort((a, b) => {
+          if (a.employee_role !== b.employee_role) {
+            return a.employee_role === 'admin' ? -1 : 1;
+          }
+          return a.employee_name.toLowerCase().localeCompare(b.employee_name.toLowerCase());
+        });
         setVacationRecords(records);
       }
     } catch (error) {

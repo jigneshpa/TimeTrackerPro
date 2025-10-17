@@ -7,6 +7,7 @@ interface TimeReportData {
   employee_name: string;
   employee_id: string;
   employee_number: string;
+  employee_role?: string;
   total_hours: number;
   lunch_hours: number;
   unpaid_hours: number;
@@ -54,13 +55,16 @@ const TimeReports: React.FC = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [payPeriods, setPayPeriods] = useState<PayPeriod[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string>('');
+  const [selectionMode, setSelectionMode] = useState<'period' | 'daterange'>('period');
 
   const today = new Date();
-  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const sunday = new Date(today);
+  sunday.setDate(today.getDate() - today.getDay());
+  const saturday = new Date(sunday);
+  saturday.setDate(sunday.getDate() + 6);
 
-  const [startDate, setStartDate] = useState(toDateString(firstDayOfMonth));
-  const [endDate, setEndDate] = useState(toDateString(lastDayOfMonth));
+  const [startDate, setStartDate] = useState(toDateString(sunday));
+  const [endDate, setEndDate] = useState(toDateString(saturday));
 
   const fetchReports = async () => {
     setLoading(true);
@@ -68,8 +72,17 @@ const TimeReports: React.FC = () => {
       const response = await getTimeReports(startDate, endDate);
 
       if (response.success && response.data) {
-        // Sort employees alphabetically
+        // Sort: Admins first, then Employees, both alphabetically
         const sortedData = response.data.sort((a: TimeReportData, b: TimeReportData) => {
+          // Sort by role first (admins before employees)
+          const aRole = a.employee_role || 'employee';
+          const bRole = b.employee_role || 'employee';
+
+          if (aRole !== bRole) {
+            return aRole === 'admin' ? -1 : 1;
+          }
+
+          // Then sort alphabetically by name
           return a.employee_name.toLowerCase().localeCompare(b.employee_name.toLowerCase());
         });
         setReportData(sortedData);
@@ -91,7 +104,14 @@ const TimeReports: React.FC = () => {
   };
 
   useEffect(() => {
-    generatePayPeriods();
+    const periods = generatePayPeriods();
+    // Set current week period as default
+    if (periods.length > 0) {
+      const currentPeriod = periods.find(p => p.startDate === startDate && p.endDate === endDate);
+      if (currentPeriod) {
+        setSelectedPeriod(currentPeriod.label);
+      }
+    }
     fetchReports();
   }, []);
 
@@ -99,7 +119,7 @@ const TimeReports: React.FC = () => {
     const periods: PayPeriod[] = [];
     const currentDate = new Date();
 
-    // Generate 26 pay periods (6 months back and forward)
+    // Generate 53 pay periods (26 weeks back and 26 forward)
     for (let i = -26; i <= 26; i++) {
       const sunday = new Date(currentDate);
       sunday.setDate(currentDate.getDate() - currentDate.getDay() + (i * 7));
@@ -117,6 +137,7 @@ const TimeReports: React.FC = () => {
     }
 
     setPayPeriods(periods);
+    return periods;
   };
 
   const handlePeriodChange = (value: string) => {
@@ -126,7 +147,26 @@ const TimeReports: React.FC = () => {
       if (period) {
         setStartDate(period.startDate);
         setEndDate(period.endDate);
+        fetchReports();
       }
+    }
+  };
+
+  const handleSelectionModeChange = (mode: 'period' | 'daterange') => {
+    setSelectionMode(mode);
+    if (mode === 'period' && selectedPeriod) {
+      const period = payPeriods.find(p => p.label === selectedPeriod);
+      if (period) {
+        setStartDate(period.startDate);
+        setEndDate(period.endDate);
+      }
+    }
+  };
+
+  const handleManualDateChange = () => {
+    if (startDate && endDate && selectionMode === 'daterange') {
+      setSelectedPeriod('');
+      fetchReports();
     }
   };
 
@@ -289,31 +329,64 @@ const TimeReports: React.FC = () => {
       </div>
 
       <div className="mb-6 bg-gray-50 p-4 rounded-lg">
-        <div className="flex items-center space-x-2 mb-3">
+        <div className="flex items-center space-x-2 mb-4">
           <Calendar className="h-5 w-5 text-gray-600" />
-          <label className="text-sm font-medium text-gray-700">Date Range:</label>
+          <label className="text-sm font-medium text-gray-700">Date Selection:</label>
         </div>
-        <div className="flex flex-wrap items-center gap-3 mb-3">
-          <div className="flex-1 min-w-[250px]">
-            <label className="block text-xs text-gray-600 mb-1">Pay Period</label>
-            <select
-              value={selectedPeriod}
-              onChange={(e) => handlePeriodChange(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Select a pay period...</option>
-              {payPeriods.map((period) => (
-                <option key={period.label} value={period.label}>
-                  {period.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Start Date</label>
+
+        {/* Radio buttons for selection mode */}
+        <div className="flex items-center gap-6 mb-4">
+          <label className="flex items-center space-x-2 cursor-pointer">
             <input
+              type="radio"
+              name="selectionMode"
+              value="period"
+              checked={selectionMode === 'period'}
+              onChange={() => handleSelectionModeChange('period')}
+              className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-gray-700">Pay Period</span>
+          </label>
+          <label className="flex items-center space-x-2 cursor-pointer">
+            <input
+              type="radio"
+              name="selectionMode"
+              value="daterange"
+              checked={selectionMode === 'daterange'}
+              onChange={() => handleSelectionModeChange('daterange')}
+              className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-gray-700">Date Range</span>
+          </label>
+        </div>
+
+        {/* Pay Period Selection */}
+        {selectionMode === 'period' && (
+          <div className="flex flex-wrap items-center gap-3 mb-3">
+            <div className="flex-1 min-w-[250px]">
+              <label className="block text-xs text-gray-600 mb-1">Select Pay Period</label>
+              <select
+                value={selectedPeriod}
+                onChange={(e) => handlePeriodChange(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Select a pay period...</option>
+                {payPeriods.map((period) => (
+                  <option key={period.label} value={period.label}>
+                    {period.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Date Range Selection */}
+        {selectionMode === 'daterange' && (
+          <div className="flex flex-wrap items-center gap-3">
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Start Date</label>
+              <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
@@ -330,13 +403,14 @@ const TimeReports: React.FC = () => {
             />
           </div>
           <button
-            onClick={handleDateChange}
+            onClick={handleManualDateChange}
             disabled={!startDate || !endDate}
             className="mt-5 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Apply
           </button>
-        </div>
+          </div>
+        )}
       </div>
 
       {loading ? (

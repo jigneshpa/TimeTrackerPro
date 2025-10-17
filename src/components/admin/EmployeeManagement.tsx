@@ -38,8 +38,13 @@ const EmployeeManagement: React.FC = () => {
       setError(null);
       const response = await getEmployees();
       if (response.success && response.data) {
-        // Sort employees alphabetically by first name, then last name
+        // Sort employees: Admins first, then by name alphabetically
         const sortedEmployees = response.data.sort((a: Employee, b: Employee) => {
+          // Sort by role first (admins before employees)
+          if (a.role !== b.role) {
+            return a.role === 'admin' ? -1 : 1;
+          }
+          // Then sort alphabetically by name
           const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
           const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
           return nameA.localeCompare(nameB);
