@@ -1,9 +1,9 @@
 -- Work Schedules Table Migration
 -- This table stores employee work schedules with shift times and locations
 
-CREATE TABLE IF NOT EXISTS work_schedules (
+CREATE TABLE IF NOT EXISTS work_schedules_timetrackpro (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    employee_id INT NOT NULL,
+    employee_id INT UNSIGNED NOT NULL,
     schedule_date DATE NOT NULL,
     start_time TIME NULL,
     end_time TIME NULL,
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS work_schedules (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Store Locations Table
-CREATE TABLE IF NOT EXISTS store_locations (
+CREATE TABLE IF NOT EXISTS store_locations_timetrackpro (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     address TEXT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS store_locations (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Insert default store locations
-INSERT INTO store_locations (name, is_active, display_order) VALUES
+INSERT INTO store_locations_timetrackpro (name, is_active, display_order) VALUES
 ('Main Store', true, 1),
 ('North Branch', true, 2),
 ('South Branch', true, 3),
