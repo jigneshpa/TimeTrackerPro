@@ -9,6 +9,7 @@ function handle_get_time_reports() {
     $db = get_db_connection();
 
     // Get all active users with their employee vacation data and roles
+    // Using GROUP_CONCAT to combine multiple roles into a single row per employee
     $sql = "SELECT
         e.id AS employee_id,
         u.id AS user_id,
@@ -16,14 +17,15 @@ function handle_get_time_reports() {
         u.first_name,
         u.middle_name,
         u.last_name,
-        r.short_name AS employee_role
+        GROUP_CONCAT(r.short_name ORDER BY r.id SEPARATOR ', ') AS employee_roles
     FROM employees_timetrackpro e
     JOIN users u ON e.user_id = u.id
     LEFT JOIN model_has_roles mhr ON u.id = mhr.model_id AND mhr.model_type = 'App\\\\Models\\\\Iam\\\\Personnel\\\\User'
     LEFT JOIN roles r ON mhr.role_id = r.id
     WHERE u.status = 'Active'
+    GROUP BY e.id, u.id, u.employee_code, u.first_name, u.middle_name, u.last_name
     ORDER BY
-        CASE WHEN r.short_name IN ('master_admin', 'admin') THEN 0 ELSE 1 END,
+        CASE WHEN GROUP_CONCAT(r.short_name) LIKE '%admin%' THEN 0 ELSE 1 END,
         u.first_name ASC";
 
     $employees = $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
@@ -117,7 +119,7 @@ function handle_get_time_reports() {
             'user_id' => $emp['user_id'],
             'employee_name' => $fullName,
             'employee_number' => $emp['employee_number'],
-            'employee_role' => $emp['employee_role'],
+            'employee_role' => $emp['employee_roles'], // Now contains comma-separated roles
             'total_hours' => $totalHours,
             'lunch_hours' => $lunchHours,
             'unpaid_hours' => $unpaidHours,
