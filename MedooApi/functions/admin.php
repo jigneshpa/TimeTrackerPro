@@ -499,64 +499,7 @@ function handle_deny_vacation() {
     send_success_response($updatedRequest, 'Vacation request denied');
 }
 
-function handle_get_work_schedules() {
-    require_admin();
-
-    $employeeId = $_GET['employee_id'] ?? null;
-
-    if (!$employeeId) {
-        send_error_response('Employee ID is required', 400);
-    }
-
-    $db = get_db_connection();
-    $schedules = $db->select('work_schedules_timetrackpro', '*', [
-        'employee_id' => $employeeId,
-        'ORDER' => ['day_of_week' => 'ASC']
-    ]);
-
-    send_success_response($schedules);
-}
-
-function handle_save_work_schedule() {
-    require_admin();
-    $data = json_decode(file_get_contents('php://input'), true);
-
-    $required = ['employee_id', 'day_of_week', 'start_time', 'end_time'];
-    foreach ($required as $field) {
-        if (!isset($data[$field])) {
-            send_error_response("Field '$field' is required", 400);
-        }
-    }
-
-    $db = get_db_connection();
-    $existing = $db->get('work_schedules_timetrackpro', 'id', [
-        'employee_id' => $data['employee_id'],
-        'day_of_week' => $data['day_of_week']
-    ]);
-
-    $scheduleData = [
-        'employee_id' => $data['employee_id'],
-        'day_of_week' => $data['day_of_week'],
-        'start_time' => $data['start_time'],
-        'end_time' => $data['end_time'],
-        'is_working_day' => $data['is_working_day'] ?? true
-    ];
-
-    if ($existing) {
-        $db->update('work_schedules_timetrackpro', $scheduleData, [
-            'employee_id' => $data['employee_id'],
-            'day_of_week' => $data['day_of_week']
-        ]);
-        $scheduleId = $existing;
-    } else {
-        $db->insert('work_schedules_timetrackpro', $scheduleData);
-        $scheduleId = $db->id();
-    }
-
-    $schedule = $db->get('work_schedules_timetrackpro', '*', ['id' => $scheduleId]);
-
-    send_success_response($schedule, 'Work schedule saved successfully');
-}
+// Work schedule functions moved to work-schedule.php
 
 function handle_get_employee_time_events() {
     require_admin();
