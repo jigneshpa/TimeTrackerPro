@@ -137,7 +137,7 @@ function handle_get_employees() {
 
     $db = get_db_connection();
 
-    // Get all users with roles and vacation data
+    // Get all users with roles, vacation data, and primary location
     $sql = "SELECT
         u.id AS user_id,
         u.employee_code,
@@ -152,6 +152,7 @@ function handle_get_employees() {
         e.id AS employee_id,
         e.vacation_days_total,
         e.vacation_days_used,
+        e.primary_location,
         va.cumulative_accrued AS vacation_hours_accrued,
         GROUP_CONCAT(r.short_name ORDER BY r.id SEPARATOR ', ') AS role_short_names
     FROM users u
@@ -186,8 +187,10 @@ function handle_get_employees() {
 
         $result[] = [
             'id' => $emp['employee_id'],
+            'employee_id' => $emp['employee_id'],
             'user_id' => $emp['user_id'],
             'employee_code' => $emp['employee_code'],
+            'employee_number' => $emp['employee_code'],
             'first_name' => $emp['first_name'],
             'middle_name' => $emp['middle_name'],
             'last_name' => $emp['last_name'],
@@ -197,6 +200,7 @@ function handle_get_employees() {
             'role' => $isAdmin ? 'admin' : 'employee',
             'role_short_names' => $roleNames,
             'is_active' => $emp['status'] === 'Active',
+            'primary_location' => $emp['primary_location'] ?? 'Main Store',
             'vacation_days_total' => $emp['vacation_days_total'] ?? 0,
             'vacation_days_used' => $usedHours,
             'vacation_days_remaining' => $remainingHours,
