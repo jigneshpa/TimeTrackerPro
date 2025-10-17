@@ -52,13 +52,33 @@ COMMENT 'Primary work location for the employee';
 CREATE INDEX IF NOT EXISTS idx_primary_location ON employees_timetrackpro(primary_location);
 ```
 
+### Step 3: Fix Existing Schedules (IMPORTANT!)
+If you already have schedules saved and they're showing as checked (green boxes), you need to uncheck them.
+
+**Option A - Uncheck all existing schedules:**
+```sql
+UPDATE work_schedules_timetrackpro SET is_enabled = 0;
+```
+
+**Option B - Delete all existing schedules and start fresh:**
+```sql
+DELETE FROM work_schedules_timetrackpro;
+```
+
+### Step 4: Change Default Value for Future Schedules
+Run this to ensure future schedules start unchecked:
+```sql
+ALTER TABLE work_schedules_timetrackpro
+MODIFY COLUMN is_enabled BOOLEAN DEFAULT false;
+```
+
 ## After Running These Scripts
 
 1. Refresh your Work Schedule page
 2. You should now see:
    - A list of all employees in the left column
    - Days of the week across the top
-   - Checkboxes in each cell
+   - **Unchecked checkboxes** in each cell (gray background)
 
 ## How to Use the Work Schedule
 

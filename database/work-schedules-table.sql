@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS work_schedules_timetrackpro (
     end_time TIME NULL,
     total_hours DECIMAL(5,2) DEFAULT 0.00,
     store_location VARCHAR(255) DEFAULT NULL COMMENT 'References stores.store_name',
-    is_enabled BOOLEAN DEFAULT true,
+    is_enabled BOOLEAN DEFAULT false,
     notes TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
