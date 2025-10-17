@@ -75,11 +75,14 @@ const TimeReports: React.FC = () => {
         // Sort: Admins first, then Employees, both alphabetically
         const sortedData = response.data.sort((a: TimeReportData, b: TimeReportData) => {
           // Sort by role first (admins before employees)
-          const aRole = a.employee_role || 'employee';
-          const bRole = b.employee_role || 'employee';
+          const aRole = a.employee_role || '';
+          const bRole = b.employee_role || '';
 
-          if (aRole !== bRole) {
-            return aRole === 'admin' ? -1 : 1;
+          const aIsAdmin = aRole.includes('admin');
+          const bIsAdmin = bRole.includes('admin');
+
+          if (aIsAdmin !== bIsAdmin) {
+            return aIsAdmin ? -1 : 1;
           }
 
           // Then sort alphabetically by name

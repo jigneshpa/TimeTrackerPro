@@ -8,7 +8,7 @@ function handle_get_time_reports() {
 
     $db = get_db_connection();
 
-    // Get all active users with their employee vacation data
+    // Get all active users with their employee vacation data and roles
     $sql = "SELECT
         e.id AS employee_id,
         u.id AS user_id,
@@ -16,12 +16,14 @@ function handle_get_time_reports() {
         u.first_name,
         u.middle_name,
         u.last_name,
-        u.role AS employee_role
+        r.short_name AS employee_role
     FROM employees_timetrackpro e
     JOIN users u ON e.user_id = u.id
+    LEFT JOIN model_has_roles mhr ON u.id = mhr.model_id AND mhr.model_type = 'App\\\\Models\\\\Iam\\\\Personnel\\\\User'
+    LEFT JOIN roles r ON mhr.role_id = r.id
     WHERE u.status = 'Active'
     ORDER BY
-        CASE WHEN u.role = 'admin' THEN 0 ELSE 1 END,
+        CASE WHEN r.short_name IN ('master_admin', 'admin') THEN 0 ELSE 1 END,
         u.first_name ASC";
 
     $employees = $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
