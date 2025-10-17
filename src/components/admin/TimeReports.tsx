@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Calendar, Download, Edit2, Eye, X, Plus, Save, Trash2 } from 'lucide-react';
-import { getTimeReports, getEmployeeTimeEvents, updateTimeEvent, deleteTimeEvent, createTimeEvent, getEmployeeDailyBreakdown } from '../../lib/api';
+import { getTimeReports, getEmployeeTimeEvents, updateTimeEvent, deleteTimeEvent, createTimeEvent, getEmployeeDailyBreakdown, getSystemSettings } from '../../lib/api';
 import { toDateString } from '../../lib/timezone';
 
 interface TimeReportData {
@@ -56,6 +56,7 @@ const TimeReports: React.FC = () => {
   const [payPeriods, setPayPeriods] = useState<PayPeriod[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string>('');
   const [selectionMode, setSelectionMode] = useState<'period' | 'daterange'>('period');
+  const [systemSettings, setSystemSettings] = useState<any>(null);
 
   const today = new Date();
   const sunday = new Date(today);
@@ -107,40 +108,79 @@ const TimeReports: React.FC = () => {
   };
 
   useEffect(() => {
-    const periods = generatePayPeriods();
-    // Set current week period as default
-    if (periods.length > 0) {
-      const currentPeriod = periods.find(p => p.startDate === startDate && p.endDate === endDate);
-      if (currentPeriod) {
-        setSelectedPeriod(currentPeriod.label);
+    const initializeReports = async () => {
+      // Fetch system settings first
+      const settingsResponse = await getSystemSettings();
+      if (settingsResponse.success && settingsResponse.data) {
+        setSystemSettings(settingsResponse.data);
+        const periods = generatePayPeriods(settingsResponse.data);
+        // Set current period as default
+        if (periods.length > 0) {
+          const currentPeriod = findCurrentPayPeriod(periods);
+          if (currentPeriod) {
+            setSelectedPeriod(currentPeriod.label);
+            setStartDate(currentPeriod.startDate);
+            setEndDate(currentPeriod.endDate);
+          }
+        }
+      } else {
+        // Fallback to weekly periods if settings not available
+        const periods = generatePayPeriods(null);
+        if (periods.length > 0) {
+          const currentPeriod = periods.find(p => p.startDate === startDate && p.endDate === endDate);
+          if (currentPeriod) {
+            setSelectedPeriod(currentPeriod.label);
+          }
+        }
       }
-    }
-    fetchReports();
+      fetchReports();
+    };
+    initializeReports();
   }, []);
 
-  const generatePayPeriods = () => {
+  const generatePayPeriods = (settings: any) => {
     const periods: PayPeriod[] = [];
     const currentDate = new Date();
 
-    // Generate 53 pay periods (26 weeks back and 26 forward)
+    // Get settings or use defaults
+    const periodType = settings?.pay_period_type || 'weekly';
+    const startDateStr = settings?.pay_period_start_date || '2025-01-01';
+    const baseStartDate = new Date(startDateStr);
+
+    // Calculate period length in days
+    let periodDays = 7; // Default weekly
+    if (periodType === 'bi-weekly') {
+      periodDays = 14;
+    } else if (periodType === 'semi-monthly') {
+      periodDays = 15;
+    } else if (periodType === 'monthly') {
+      periodDays = 30;
+    }
+
+    // Generate periods: 26 periods back and 26 forward from today
     for (let i = -26; i <= 26; i++) {
-      const sunday = new Date(currentDate);
-      sunday.setDate(currentDate.getDate() - currentDate.getDay() + (i * 7));
+      const periodStart = new Date(baseStartDate);
+      periodStart.setDate(baseStartDate.getDate() + (i * periodDays));
 
-      const saturday = new Date(sunday);
-      saturday.setDate(sunday.getDate() + 6);
+      const periodEnd = new Date(periodStart);
+      periodEnd.setDate(periodStart.getDate() + periodDays - 1);
 
-      const periodLabel = `Period ${i + 27} (${sunday.getMonth() + 1}/${sunday.getDate()}/${sunday.getFullYear()} - ${saturday.getMonth() + 1}/${saturday.getDate()}/${saturday.getFullYear()})`;
+      const periodLabel = `Period ${i + 27} (${periodStart.getMonth() + 1}/${periodStart.getDate()}/${periodStart.getFullYear()} - ${periodEnd.getMonth() + 1}/${periodEnd.getDate()}/${periodEnd.getFullYear()})`;
 
       periods.push({
         label: periodLabel,
-        startDate: toDateString(sunday),
-        endDate: toDateString(saturday)
+        startDate: toDateString(periodStart),
+        endDate: toDateString(periodEnd)
       });
     }
 
     setPayPeriods(periods);
     return periods;
+  };
+
+  const findCurrentPayPeriod = (periods: PayPeriod[]) => {
+    const today = toDateString(new Date());
+    return periods.find(p => p.startDate <= today && p.endDate >= today) || periods[26]; // Default to middle period (current)
   };
 
   const handlePeriodChange = (value: string) => {
