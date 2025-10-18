@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, MapPin, Edit, Save, X, Plus, Copy, Trash2, Users } from 'lucide-react';
+import {
+  getEmployees,
+  getStoreLocations,
+  getSystemSettings,
+  getWorkSchedules,
+  bulkSaveWorkSchedules,
+  copyWeekSchedules,
+  clearWeekSchedules
+} from '../../lib/api';
 
 interface ScheduleTemplate {
   id: string;
@@ -20,26 +29,26 @@ interface WorkDay {
 }
 
 interface Employee {
-  id: string;
-  name: string;
-  primary_store: string;
-  role: 'employee' | 'admin';
+  employee_id: string;
+  first_name: string;
+  last_name: string;
+  primary_location: string;
+  role: string;
 }
 
-// Mock data for demo
-const mockEmployees: Employee[] = [
-  { id: '2', name: 'Admin User', primary_store: 'Main Store', role: 'admin' },
-  { id: '1', name: 'John Doe', primary_store: 'Main Store', role: 'employee' },
-  { id: '3', name: 'Jane Smith', primary_store: 'North Branch', role: 'employee' },
-];
+interface StoreLocation {
+  id: number;
+  store_name: string;
+}
 
-const storeLocations = [
-  'Main Store',
-  'North Branch',
-  'South Branch',
-  'East Location',
-  'West Location'
-];
+interface SystemSettings {
+  pay_period_start_date: string;
+  pay_period_type: string;
+  default_lunch_duration_minutes: number;
+  daily_shifts: {
+    [key: string]: { start: string; end: string; enabled: boolean };
+  };
+}
 
 const scheduleTemplates: ScheduleTemplate[] = [
   {
@@ -63,6 +72,9 @@ const scheduleTemplates: ScheduleTemplate[] = [
 ];
 
 const WorkSchedule: React.FC = () => {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [storeLocations, setStoreLocations] = useState<StoreLocation[]>([]);
+  const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [selectedWeek, setSelectedWeek] = useState<string>('');
   const [workDays, setWorkDays] = useState<{ [employeeId: string]: WorkDay[] }>({});
@@ -75,39 +87,26 @@ const WorkSchedule: React.FC = () => {
     admin: true,
     employee: true
   });
-  const [storeFilters, setStoreFilters] = useState<{ [store: string]: boolean }>({
-    'Main Store': true,
-    'North Branch': true,
-    'South Branch': true,
-    'East Location': true,
-    'West Location': true,
-    'Downtown': true
-  });
+  const [storeFilters, setStoreFilters] = useState<{ [store: string]: boolean }>({});
 
-  // Sort employees by role (admin first) then alphabetically
-  const filteredAndSortedEmployees = [...mockEmployees]
+  const filteredAndSortedEmployees = [...employees]
     .filter(emp => {
-      const roleMatch = roleFilters[emp.role];
-      const storeMatch = storeFilters[emp.primary_store];
+      const isAdmin = emp.role?.includes('admin');
+      const roleMatch = isAdmin ? roleFilters.admin : roleFilters.employee;
+      const storeMatch = !emp.primary_location || storeFilters[emp.primary_location];
       return roleMatch && storeMatch;
     })
     .sort((a, b) => {
-    if (a.role !== b.role) {
-      return a.role === 'admin' ? -1 : 1;
-    }
-    return a.name.localeCompare(b.name);
-  });
+      const aIsAdmin = a.role?.includes('admin');
+      const bIsAdmin = b.role?.includes('admin');
+      if (aIsAdmin !== bIsAdmin) {
+        return aIsAdmin ? -1 : 1;
+      }
+      return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
+    });
 
   useEffect(() => {
-    // Set current week as default (find the Sunday of current week)
-    const today = new Date();
-    const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    const sunday = new Date(today);
-    sunday.setDate(today.getDate() - currentDay); // Go back to Sunday of current week
-    setSelectedWeek(sunday.toISOString().split('T')[0]);
-    
-    // Pre-check all employees by default
-    setSelectedEmployees(mockEmployees.map(emp => emp.id));
+    initializeData();
   }, []);
 
   useEffect(() => {
@@ -116,55 +115,108 @@ const WorkSchedule: React.FC = () => {
     }
   }, [selectedEmployees, selectedWeek]);
 
+  const initializeData = async () => {
+    try {
+      const [empResponse, locResponse, settingsResponse] = await Promise.all([
+        getEmployees(),
+        getStoreLocations(),
+        getSystemSettings()
+      ]);
+
+      if (empResponse.success && empResponse.data) {
+        const empList = empResponse.data.map((emp: any) => ({
+          ...emp,
+          employee_id: emp.employee_id || emp.id,
+          primary_location: emp.primary_location || ''
+        }));
+        setEmployees(empList);
+        setSelectedEmployees(empList.map((e: Employee) => e.employee_id));
+      }
+
+      if (locResponse.success && locResponse.data) {
+        setStoreLocations(locResponse.data);
+        const filters: { [key: string]: boolean } = {};
+        locResponse.data.forEach((loc: StoreLocation) => {
+          filters[loc.store_name] = true;
+        });
+        setStoreFilters(filters);
+      }
+
+      if (settingsResponse.success && settingsResponse.data) {
+        setSystemSettings(settingsResponse.data);
+        const startDate = calculateCurrentPeriodStart(
+          settingsResponse.data.pay_period_start_date,
+          settingsResponse.data.pay_period_type === 'biweekly' ? 14 : 7
+        );
+        setSelectedWeek(startDate);
+      } else {
+        const today = new Date();
+        const sunday = new Date(today);
+        sunday.setDate(today.getDate() - today.getDay());
+        setSelectedWeek(sunday.toISOString().split('T')[0]);
+      }
+    } catch (error) {
+      console.error('Error initializing data:', error);
+    }
+  };
+
+  const calculateCurrentPeriodStart = (baseStartDate: string, periodDays: number): string => {
+    const base = new Date(baseStartDate + 'T00:00:00');
+    const today = new Date();
+    const daysSinceStart = Math.floor((today.getTime() - base.getTime()) / (1000 * 60 * 60 * 24));
+    const currentPeriodIndex = Math.floor(daysSinceStart / periodDays);
+    const periodStart = new Date(base);
+    periodStart.setDate(base.getDate() + (currentPeriodIndex * periodDays));
+    return periodStart.toISOString().split('T')[0];
+  };
+
   const fetchWorkSchedule = async () => {
     setLoading(true);
     try {
       const weekStart = new Date(selectedWeek);
-      const allWorkDays: { [employeeId: string]: WorkDay[] } = {};
-      
-      // Get system settings for default shift times
-      const savedSettings = localStorage.getItem('demo_system_settings');
-      const settings = savedSettings ? JSON.parse(savedSettings) : null;
-      const dailyShifts = settings?.daily_shifts || {};
-      
-      for (const employeeId of selectedEmployees) {
-        // Get saved schedule from localStorage
-        const scheduleKey = `work_schedule_${employeeId}_${selectedWeek}`;
-        const savedSchedule = localStorage.getItem(scheduleKey);
-        const existingSchedule = savedSchedule ? JSON.parse(savedSchedule) : {};
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
 
-        // Get employee data
-        const employee = mockEmployees.find(emp => emp.id === employeeId);
-        
+      const response = await getWorkSchedules(
+        weekStart.toISOString().split('T')[0],
+        weekEnd.toISOString().split('T')[0],
+        selectedEmployees
+      );
+
+      const allWorkDays: { [employeeId: string]: WorkDay[] } = {};
+      const dailyShifts = systemSettings?.daily_shifts || {};
+
+      for (const employeeId of selectedEmployees) {
+        const employee = employees.find(emp => emp.employee_id === employeeId);
         const weekDays: WorkDay[] = [];
-        
+
         for (let i = 0; i < 7; i++) {
           const date = new Date(weekStart);
           date.setDate(weekStart.getDate() + i);
           const dateStr = date.toISOString().split('T')[0];
           const dayName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getDay()];
-          
-          // Check if there's existing data for this day
-          const existingDay = existingSchedule[dateStr];
-          
-          // Get default shift for this day
+
+          const existingSchedule = response.success && response.data
+            ? response.data.find((s: any) => s.employee_id === employeeId && s.schedule_date === dateStr)
+            : null;
+
           const dayShift = dailyShifts[dayName] || { start: '08:00', end: '17:00', enabled: true };
-          
+
           weekDays.push({
             date: dateStr,
             employee_id: employeeId,
-            start_time: existingDay?.start_time || dayShift.start,
-            end_time: existingDay?.end_time || dayShift.end,
-            store_location: existingDay?.store_location || employee?.primary_store || 'Main Store',
-            is_scheduled: existingDay?.is_scheduled !== undefined ? existingDay.is_scheduled : dayShift.enabled,
-            hours: existingDay?.hours || calculateHours(dayShift.start, dayShift.end),
-            notes: existingDay?.notes || ''
+            start_time: existingSchedule?.start_time || dayShift.start,
+            end_time: existingSchedule?.end_time || dayShift.end,
+            store_location: existingSchedule?.store_location || employee?.primary_location || (storeLocations.length > 0 ? storeLocations[0].store_name : ''),
+            is_scheduled: existingSchedule ? existingSchedule.is_enabled === 1 : dayShift.enabled,
+            hours: existingSchedule?.total_hours || calculateHours(dayShift.start, dayShift.end),
+            notes: existingSchedule?.notes || ''
           });
         }
-        
+
         allWorkDays[employeeId] = weekDays;
       }
-      
+
       setWorkDays(allWorkDays);
     } catch (error) {
       console.error('Error fetching work schedule:', error);
@@ -177,62 +229,65 @@ const WorkSchedule: React.FC = () => {
     const start = new Date(`2000-01-01T${startTime}:00`);
     const end = new Date(`2000-01-01T${endTime}:00`);
     let hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-    
-    // Subtract lunch if it's a full day (more than 6 hours) and includeLunch is true
+
     if (includeLunch && hours > 6) {
-      const savedSettings = localStorage.getItem('demo_system_settings');
-      const settings = savedSettings ? JSON.parse(savedSettings) : null;
-      const lunchMinutes = settings?.default_lunch_duration_minutes || 60;
+      const lunchMinutes = systemSettings?.default_lunch_duration_minutes || 60;
       hours -= lunchMinutes / 60;
     }
-    
+
     return Math.max(0, hours);
   };
 
   const saveWorkSchedule = async () => {
     if (selectedEmployees.length === 0 || !selectedWeek) return;
-    
+
     try {
+      const schedules: any[] = [];
+
       for (const employeeId of selectedEmployees) {
-        const scheduleKey = `work_schedule_${employeeId}_${selectedWeek}`;
-        const scheduleData: { [date: string]: WorkDay } = {};
-        
         const employeeWorkDays = workDays[employeeId] || [];
         employeeWorkDays.forEach(day => {
-          scheduleData[day.date] = day;
+          schedules.push({
+            employee_id: day.employee_id,
+            schedule_date: day.date,
+            start_time: day.start_time,
+            end_time: day.end_time,
+            total_hours: day.hours,
+            store_location: day.store_location,
+            is_enabled: day.is_scheduled,
+            notes: day.notes || ''
+          });
         });
-        
-        localStorage.setItem(scheduleKey, JSON.stringify(scheduleData));
       }
+
+      await bulkSaveWorkSchedules(schedules);
+      alert('Schedule saved successfully!');
     } catch (error) {
       console.error('Error saving work schedule:', error);
+      alert('Failed to save schedule');
     }
   };
 
   const applyTemplate = async () => {
     if (!selectedTemplate || selectedEmployees.length === 0) return;
-    
+
     const template = scheduleTemplates.find(t => t.id === selectedTemplate);
     if (!template) return;
-    
-    // Get system settings for shift times
-    const savedSettings = localStorage.getItem('demo_system_settings');
-    const settings = savedSettings ? JSON.parse(savedSettings) : null;
-    const dailyShifts = settings?.daily_shifts || {};
-    
+
+    const dailyShifts = systemSettings?.daily_shifts || {};
     const updatedWorkDays: { [employeeId: string]: WorkDay[] } = {};
-    
+
     for (const employeeId of selectedEmployees) {
-      const employee = mockEmployees.find(emp => emp.id === employeeId);
+      const employee = employees.find(emp => emp.employee_id === employeeId);
       const employeeWorkDays = workDays[employeeId] || [];
-      
+
       const updatedEmployeeWorkDays = employeeWorkDays.map(day => {
         const date = new Date(day.date);
         const dayName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getDay()];
         const dayShift = dailyShifts[dayName] || { start: '08:00', end: '17:00', enabled: true };
-        
+
         let newDay = { ...day };
-        
+
         switch (template.type) {
           case 'every_day_full':
             newDay.is_scheduled = true;
@@ -240,18 +295,17 @@ const WorkSchedule: React.FC = () => {
             newDay.end_time = dayShift.end;
             newDay.hours = calculateHours(dayShift.start, dayShift.end);
             break;
-            
+
           case 'every_day_8hours':
             newDay.is_scheduled = true;
             newDay.start_time = dayShift.start;
-            // Calculate end time for 8 hours + lunch
             const startTime = new Date(`2000-01-01T${dayShift.start}:00`);
-            const lunchMinutes = settings?.default_lunch_duration_minutes || 60;
+            const lunchMinutes = systemSettings?.default_lunch_duration_minutes || 60;
             const endTime = new Date(startTime.getTime() + (8 * 60 * 60 * 1000) + (lunchMinutes * 60 * 1000));
             newDay.end_time = endTime.toTimeString().substring(0, 5);
             newDay.hours = 8;
             break;
-            
+
           case 'weekdays_only':
             const isWeekday = date.getDay() >= 1 && date.getDay() <= 5;
             newDay.is_scheduled = isWeekday;
@@ -262,24 +316,18 @@ const WorkSchedule: React.FC = () => {
             }
             break;
         }
-        
-        // Reset store to primary
-        newDay.store_location = employee?.primary_store || 'Main Store';
-        
+
+        newDay.store_location = employee?.primary_location || (storeLocations.length > 0 ? storeLocations[0].store_name : '');
+
         return newDay;
       });
-      
+
       updatedWorkDays[employeeId] = updatedEmployeeWorkDays;
     }
-    
+
     setWorkDays(updatedWorkDays);
     setShowBulkAssign(false);
     setSelectedTemplate('');
-    
-    // Auto-save after applying template
-    setTimeout(() => {
-      saveWorkSchedule();
-    }, 100);
   };
 
   const startEditing = (employeeId: string, date: string) => {
@@ -293,27 +341,21 @@ const WorkSchedule: React.FC = () => {
 
   const saveEdit = async () => {
     if (!editingCell) return;
-    
+
     const updatedWorkDays = { ...workDays };
-    
+
     updatedWorkDays[editingCell.employeeId] = workDays[editingCell.employeeId].map(day => {
       if (day.date === editingCell.date) {
         const updatedDay = { ...day, ...editValues };
-        // Recalculate hours
         updatedDay.hours = calculateHours(updatedDay.start_time, updatedDay.end_time);
         return updatedDay;
       }
       return day;
     });
-    
+
     setWorkDays(updatedWorkDays);
     setEditingCell(null);
     setEditValues({});
-    
-    // Auto-save
-    setTimeout(() => {
-      saveWorkSchedule();
-    }, 100);
   };
 
   const cancelEdit = () => {
@@ -329,42 +371,55 @@ const WorkSchedule: React.FC = () => {
       }
       return day;
     });
-    
+
     setWorkDays(updatedWorkDays);
-    
-    // Auto-save
-    setTimeout(() => {
-      saveWorkSchedule();
-    }, 100);
   };
 
-  const copyWeek = () => {
-    alert('Copy week functionality - would copy current schedule to next week');
+  const copyWeek = async () => {
+    try {
+      const sourceStart = new Date(selectedWeek);
+      const targetStart = new Date(sourceStart);
+      targetStart.setDate(sourceStart.getDate() + 7);
+
+      await copyWeekSchedules(
+        sourceStart.toISOString().split('T')[0],
+        targetStart.toISOString().split('T')[0],
+        selectedEmployees,
+        7
+      );
+
+      alert('Week copied successfully!');
+      setSelectedWeek(targetStart.toISOString().split('T')[0]);
+    } catch (error) {
+      console.error('Error copying week:', error);
+      alert('Failed to copy week');
+    }
   };
 
-  const clearWeek = () => {
-    if (confirm('Are you sure you want to clear all scheduled days for this week?')) {
-      const clearedWorkDays: { [employeeId: string]: WorkDay[] } = {};
-      
-      for (const employeeId of selectedEmployees) {
-        const employeeWorkDays = workDays[employeeId] || [];
-        clearedWorkDays[employeeId] = employeeWorkDays.map(day => ({
-          ...day,
-          is_scheduled: false,
-          notes: ''
-        }));
+  const clearWeek = async () => {
+    if (confirm('Are you sure you want to clear all schedules for this week?')) {
+      try {
+        const weekStart = new Date(selectedWeek);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+
+        await clearWeekSchedules(
+          weekStart.toISOString().split('T')[0],
+          weekEnd.toISOString().split('T')[0],
+          selectedEmployees
+        );
+
+        alert('Week cleared successfully!');
+        fetchWorkSchedule();
+      } catch (error) {
+        console.error('Error clearing week:', error);
+        alert('Failed to clear week');
       }
-      
-      setWorkDays(clearedWorkDays);
-      
-      setTimeout(() => {
-        saveWorkSchedule();
-      }, 100);
     }
   };
 
   const toggleEmployeeSelection = (employeeId: string) => {
-    setSelectedEmployees(prev => 
+    setSelectedEmployees(prev =>
       prev.includes(employeeId)
         ? prev.filter(id => id !== employeeId)
         : [...prev, employeeId]
@@ -373,87 +428,47 @@ const WorkSchedule: React.FC = () => {
 
   const handleRoleFilterChange = (role: 'admin' | 'employee', checked: boolean) => {
     setRoleFilters(prev => ({ ...prev, [role]: checked }));
-    
-    // Update selected employees based on new filters
-    const newRoleFilters = { ...roleFilters, [role]: checked };
-    const filteredEmployees = mockEmployees.filter(emp => {
-      const roleMatch = newRoleFilters[emp.role];
-      const storeMatch = storeFilters[emp.primary_store];
-      return roleMatch && storeMatch;
-    });
-    setSelectedEmployees(filteredEmployees.map(emp => emp.id));
   };
 
   const handleStoreFilterChange = (store: string, checked: boolean) => {
     setStoreFilters(prev => ({ ...prev, [store]: checked }));
-    
-    // Update selected employees based on new filters
-    const newStoreFilters = { ...storeFilters, [store]: checked };
-    const filteredEmployees = mockEmployees.filter(emp => {
-      const roleMatch = roleFilters[emp.role];
-      const storeMatch = newStoreFilters[emp.primary_store];
-      return roleMatch && storeMatch;
-    });
-    setSelectedEmployees(filteredEmployees.map(emp => emp.id));
   };
-  
+
   const getWeekDates = (weekStart: string) => {
     const dates = [];
     const start = new Date(weekStart);
-    
-    // Ensure we start on Sunday (day 0)
+
     const currentDay = start.getDay();
     if (currentDay !== 0) {
       start.setDate(start.getDate() - currentDay);
     }
-    
+
     for (let i = 0; i < 7; i++) {
       const date = new Date(start);
       date.setDate(start.getDate() + i);
       dates.push(date);
     }
-    
-    return dates;
-  };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric' 
-    });
+    return dates;
   };
 
   const getWeekRange = (weekStart: string) => {
     const start = new Date(weekStart);
-    
-    // Ensure we start on Sunday
+
     const currentDay = start.getDay();
     if (currentDay !== 0) {
       start.setDate(start.getDate() - currentDay);
     }
-    
+
     const end = new Date(start);
-    end.setDate(start.getDate() + 6); // Sunday + 6 days = Saturday
-    
+    end.setDate(start.getDate() + 6);
+
     return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
   };
 
   const getEmployeeTotalHours = (employeeId: string) => {
     const employeeWorkDays = workDays[employeeId] || [];
     return employeeWorkDays.filter(d => d.is_scheduled).reduce((sum, day) => sum + day.hours, 0);
-  };
-
-  const getStoreColorClass = (storeLocation: string) => {
-    const storeColors: { [store: string]: string } = {
-      'Main Store': 'bg-blue-50 border-blue-200',
-      'North Branch': 'bg-green-50 border-green-200',
-      'South Branch': 'bg-yellow-50 border-yellow-200',
-      'East Location': 'bg-purple-50 border-purple-200',
-      'West Location': 'bg-pink-50 border-pink-200',
-      'Downtown': 'bg-orange-50 border-orange-200'
-    };
-    return storeColors[storeLocation] || 'bg-gray-50 border-gray-200';
   };
 
   const weekDates = selectedWeek ? getWeekDates(selectedWeek) : [];
@@ -467,12 +482,11 @@ const WorkSchedule: React.FC = () => {
         </div>
       </div>
 
-      {/* Bulk Assignment Modal */}
       {showBulkAssign && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
             <h3 className="text-xl font-bold text-gray-900 mb-6">Bulk Schedule Assignment</h3>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -497,7 +511,7 @@ const WorkSchedule: React.FC = () => {
                 )}
               </div>
             </div>
-            
+
             <div className="flex items-center justify-end space-x-4 mt-6">
               <button
                 onClick={() => {
@@ -521,7 +535,6 @@ const WorkSchedule: React.FC = () => {
         </div>
       )}
 
-      {/* Week Selection and Action Buttons */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div>
@@ -543,7 +556,7 @@ const WorkSchedule: React.FC = () => {
             </div>
           )}
         </div>
-        
+
         <div className="flex items-center space-x-3">
           <button
             onClick={() => setShowBulkAssign(true)}
@@ -569,9 +582,7 @@ const WorkSchedule: React.FC = () => {
         </div>
       </div>
 
-      {/* Filters and Employee Selection */}
       <div className="space-y-6 mb-6">
-        {/* Row 1: Role Filters */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3">
             By Role
@@ -597,37 +608,36 @@ const WorkSchedule: React.FC = () => {
             </label>
           </div>
         </div>
-        
-        {/* Row 2: Employee Selection Grid */}
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3">
-            Select Employees ({filteredAndSortedEmployees.length} shown, {selectedEmployees.filter(id => filteredAndSortedEmployees.find(emp => emp.id === id)).length} selected)
+            Select Employees ({selectedEmployees.length} selected)
           </label>
           <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 min-h-[200px]">
               {filteredAndSortedEmployees.map(employee => (
-                <label key={employee.id} className="flex items-start space-x-2 cursor-pointer hover:bg-white p-2 rounded border border-transparent hover:border-gray-200 transition-colors">
+                <label key={employee.employee_id} className="flex items-start space-x-2 cursor-pointer hover:bg-white p-2 rounded border border-transparent hover:border-gray-200 transition-colors">
                   <input
                     type="checkbox"
-                    checked={selectedEmployees.includes(employee.id)}
-                    onChange={() => toggleEmployeeSelection(employee.id)}
+                    checked={selectedEmployees.includes(employee.employee_id)}
+                    onChange={() => toggleEmployeeSelection(employee.employee_id)}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-0.5 flex-shrink-0"
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-gray-900 truncate" title={employee.name}>
-                      {employee.name}
+                    <div className="text-sm font-medium text-gray-900 truncate" title={`${employee.first_name} ${employee.last_name}`}>
+                      {employee.first_name} {employee.last_name}
                     </div>
                     <div className="flex items-center space-x-1 mt-1">
                       <span className={`inline-flex px-1.5 py-0.5 text-xs font-medium rounded-full ${
-                        employee.role === 'admin'
+                        employee.role?.includes('admin')
                           ? 'bg-purple-100 text-purple-800'
                           : 'bg-blue-100 text-blue-800'
                       }`}>
-                        {employee.role}
+                        {employee.role?.includes('admin') ? 'admin' : 'employee'}
                       </span>
                     </div>
-                    <div className="text-xs text-gray-500 truncate mt-1" title={employee.primary_store}>
-                      {employee.primary_store}
+                    <div className="text-xs text-gray-500 truncate mt-1" title={employee.primary_location}>
+                      {employee.primary_location}
                     </div>
                   </div>
                 </label>
@@ -642,23 +652,22 @@ const WorkSchedule: React.FC = () => {
           </div>
         </div>
 
-        {/* Row 3: Store Location Filters */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3">
             By Store Location
           </label>
           <div className="bg-gray-50 border border-gray-300 rounded-lg p-3">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
-              {Object.entries(storeFilters).map(([store, checked]) => (
-                <label key={store} className="flex items-center space-x-2 cursor-pointer">
+              {storeLocations.map(loc => (
+                <label key={loc.id} className="flex items-center space-x-2 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={checked}
-                    onChange={(e) => handleStoreFilterChange(store, e.target.checked)}
+                    checked={storeFilters[loc.store_name] || false}
+                    onChange={(e) => handleStoreFilterChange(loc.store_name, e.target.checked)}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
-                  <span className="text-sm font-medium text-gray-900 truncate" title={store}>
-                    {store}
+                  <span className="text-sm font-medium text-gray-900 truncate" title={loc.store_name}>
+                    {loc.store_name}
                   </span>
                 </label>
               ))}
@@ -667,7 +676,6 @@ const WorkSchedule: React.FC = () => {
         </div>
       </div>
 
-      {/* Calendar View */}
       {selectedEmployees.length > 0 && selectedWeek && (
         <div className="bg-white rounded-xl shadow-sm border">
           <div className="p-6 border-b">
@@ -678,7 +686,7 @@ const WorkSchedule: React.FC = () => {
               Week: {getWeekRange(selectedWeek)} (Sunday - Saturday)
             </p>
           </div>
-          
+
           {loading ? (
             <div className="p-8 text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -711,40 +719,47 @@ const WorkSchedule: React.FC = () => {
                 </thead>
                 <tbody>
                   {selectedEmployees.map(employeeId => {
-                    const employee = filteredAndSortedEmployees.find(emp => emp.id === employeeId);
-                    if (!employee) return null; // Skip if employee is filtered out
-                    
+                    const employee = filteredAndSortedEmployees.find(emp => emp.employee_id === employeeId);
+                    if (!employee) return null;
+
                     const employeeWorkDays = workDays[employeeId] || [];
                     const totalHours = getEmployeeTotalHours(employeeId);
-                    
+
                     return (
                       <tr key={employeeId} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-1 px-1 bg-white sticky left-0 z-10 border-r border-gray-200 w-[50px]">
-                          <div>
-                            <p className="font-medium text-gray-900 text-xs truncate" title={employee?.name}>{employee?.name}</p>
-                            <div className="mt-1">
-                              <span className={`inline-flex px-1 py-0.5 text-[10px] font-medium rounded-full ${
-                                employee?.role === 'admin'
-                                  ? 'bg-purple-100 text-purple-800'
-                                  : 'bg-blue-100 text-blue-800'
-                              }`}>
-                                {employee?.role}
+                        <td className="py-3 px-4 sticky left-0 bg-gray-50 border-r">
+                          <div className="flex items-center space-x-3">
+                            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                              <span className="text-sm font-semibold text-blue-600">
+                                {employee.first_name[0]}{employee.last_name[0]}
                               </span>
                             </div>
-                            <p className="text-[10px] text-gray-500 truncate" title={employee?.primary_store}>{employee?.primary_store}</p>
+                            <div>
+                              <p className="font-semibold text-sm text-gray-900">{employee.first_name} {employee.last_name}</p>
+                              <div className="flex items-center space-x-2 mt-1">
+                                <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
+                                  employee.role?.includes('admin') ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                                }`}>
+                                  {employee.role?.includes('admin') ? 'Admin' : 'Employee'}
+                                </span>
+                                {employee.primary_location && (
+                                  <span className="text-xs text-gray-500">• {employee.primary_location}</span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </td>
                         {weekDates.map((date, dayIndex) => {
                           const dateStr = date.toISOString().split('T')[0];
                           const dayData = employeeWorkDays.find(d => d.date === dateStr);
                           const isEditing = editingCell?.employeeId === employeeId && editingCell?.date === dateStr;
-                          
+
                           return (
                             <td key={dayIndex} className="py-2 px-2 text-center">
                               {dayData && (
                                 <div className={`p-2 rounded-lg border-2 ${
-                                  dayData.is_scheduled 
-                                    ? 'bg-green-50 border-green-200' 
+                                  dayData.is_scheduled
+                                    ? 'bg-green-50 border-green-200'
                                     : 'bg-gray-50 border-gray-200'
                                 }`}>
                                   {isEditing ? (
@@ -779,8 +794,8 @@ const WorkSchedule: React.FC = () => {
                                             className="w-full px-1 py-1 border border-gray-300 rounded text-xs"
                                           >
                                             {storeLocations.map(location => (
-                                              <option key={location} value={location}>
-                                                {location}
+                                              <option key={location.id} value={location.store_name}>
+                                                {location.store_name}
                                               </option>
                                             ))}
                                           </select>
@@ -850,7 +865,7 @@ const WorkSchedule: React.FC = () => {
               </table>
             </div>
           )}
-          
+
           <div className="p-6 border-t">
             <button
               onClick={saveWorkSchedule}
@@ -862,21 +877,20 @@ const WorkSchedule: React.FC = () => {
           </div>
         </div>
       )}
-      
+
       {filteredAndSortedEmployees.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
           <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
           <p>No employees match the current filters.</p>
           <p className="text-sm text-gray-400 mt-1">Try adjusting the role or store location filters.</p>
         </div>
-      ) : selectedEmployees.filter(id => filteredAndSortedEmployees.find(emp => emp.id === id)).length === 0 && (
+      ) : selectedEmployees.filter(id => filteredAndSortedEmployees.find(emp => emp.employee_id === id)).length === 0 && (
         <div className="text-center py-8 text-gray-500">
           <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
           <p>Please select at least one employee to manage their work schedule.</p>
         </div>
       )}
 
-      {/* Information Panel */}
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-start space-x-3">
           <Calendar className="h-5 w-5 text-blue-600 mt-0.5" />
