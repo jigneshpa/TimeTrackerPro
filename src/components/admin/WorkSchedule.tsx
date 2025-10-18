@@ -124,11 +124,13 @@ const WorkSchedule: React.FC = () => {
       ]);
 
       if (empResponse.success && empResponse.data) {
-        const empList = empResponse.data.map((emp: any) => ({
-          ...emp,
-          employee_id: emp.employee_id || emp.id,
-          primary_location: emp.primary_location || ''
-        }));
+        const empList = empResponse.data
+          .filter((emp: any) => emp.employee_id != null)
+          .map((emp: any) => ({
+            ...emp,
+            employee_id: String(emp.employee_id),
+            primary_location: emp.primary_location || ''
+          }));
         setEmployees(empList);
         setSelectedEmployees(empList.map((e: Employee) => e.employee_id));
       }
@@ -197,7 +199,7 @@ const WorkSchedule: React.FC = () => {
           const dayName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getDay()];
 
           const existingSchedule = response.success && response.data
-            ? response.data.find((s: any) => s.employee_id === employeeId && s.schedule_date === dateStr)
+            ? response.data.find((s: any) => String(s.employee_id) === String(employeeId) && s.schedule_date === dateStr)
             : null;
 
           const dayShift = dailyShifts[dayName] || { start: '08:00', end: '17:00', enabled: true };
