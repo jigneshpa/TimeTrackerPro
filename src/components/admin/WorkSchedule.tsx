@@ -94,28 +94,20 @@ const WorkSchedule: React.FC = () => {
 
   const initializeData = async () => {
     try {
-      console.log('Initializing work schedule data...');
       const [empResponse, locResponse, settingsResponse] = await Promise.all([
         getEmployees(),
         getStoreLocations(),
         getSystemSettings()
       ]);
 
-      console.log('Employee Response:', empResponse);
-      console.log('Location Response:', locResponse);
-      console.log('Settings Response:', settingsResponse);
-
       if (empResponse.success && empResponse.data) {
         const empList = empResponse.data.map((emp: any) => ({
           ...emp,
           employee_id: emp.employee_id || emp.id,
-          primary_location: emp.primary_location || 'Main Store'
+          primary_location: emp.primary_location || ''
         }));
-        console.log('Processed employees:', empList);
         setEmployees(empList);
         setSelectedEmployeeIds(empList.map((e: Employee) => e.employee_id));
-      } else {
-        console.error('Failed to load employees:', empResponse);
       }
 
       if (locResponse.success && locResponse.data) {
@@ -125,10 +117,10 @@ const WorkSchedule: React.FC = () => {
           filters[loc.store_name] = true;
         });
         setStoreFilter(filters);
-      } else {
-        console.error('Failed to load store locations:', locResponse);
-        // Set default filters
-        setStoreFilter({ 'Main Store': true, 'Bon Aqua': true });
+        setBulkValues(prev => ({
+          ...prev,
+          store_location: locResponse.data?.[0]?.store_name || ''
+        }));
       }
 
       if (settingsResponse.success && settingsResponse.data) {
@@ -138,13 +130,7 @@ const WorkSchedule: React.FC = () => {
           settingsResponse.data.pay_period_type === 'biweekly' ? 14 : 7
         );
         setWeekStartDate(startDate);
-        setBulkValues(prev => ({
-          ...prev,
-          store_location: locResponse.data?.[0]?.store_name || 'Main Store'
-        }));
       } else {
-        console.error('Failed to load system settings:', settingsResponse);
-        // Set default week start to current Sunday
         const today = new Date();
         const sunday = new Date(today);
         sunday.setDate(today.getDate() - today.getDay());
@@ -219,7 +205,7 @@ const WorkSchedule: React.FC = () => {
       start_time: dayShift?.start || '08:00',
       end_time: dayShift?.end || '17:00',
       total_hours: 0,
-      store_location: emp?.primary_location || storeLocations[0]?.store_name || 'Bon Aqua',
+      store_location: emp?.primary_location || (storeLocations.length > 0 ? storeLocations[0].store_name : ''),
       is_enabled: false,
       notes: ''
     };
@@ -373,8 +359,6 @@ const WorkSchedule: React.FC = () => {
       if (aIsAdmin !== bIsAdmin) return aIsAdmin ? -1 : 1;
       return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
     });
-
-  console.log('Filtered employees:', filteredEmployees.length, 'of', employees.length);
 
   const weekDates = getWeekDates();
   const weekRangeText = weekDates.length > 0
