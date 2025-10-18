@@ -91,12 +91,11 @@ const WorkSchedule: React.FC = () => {
   });
   const [storeFilters, setStoreFilters] = useState<{ [store: string]: boolean }>({});
 
-  const filteredAndSortedEmployees = [...employees]
+  const employeesForSelection = [...employees]
     .filter(emp => {
       const isAdmin = emp.role === 'admin' || emp.role === 'master_admin' || emp.role?.includes('admin');
       const roleMatch = isAdmin ? roleFilters.admin : roleFilters.employee;
-      const storeMatch = !emp.primary_location || storeFilters[emp.primary_location] !== false;
-      return roleMatch && storeMatch;
+      return roleMatch;
     })
     .sort((a, b) => {
       const aIsAdmin = a.role === 'admin' || a.role === 'master_admin' || a.role?.includes('admin');
@@ -106,6 +105,16 @@ const WorkSchedule: React.FC = () => {
       }
       return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
     });
+
+  const selectedEmployeesFilteredByStore = selectedEmployees.filter(empId => {
+    const employee = employees.find(e => e.employee_id === empId);
+    if (!employee) return false;
+
+    const checkedStores = Object.entries(storeFilters).filter(([_, checked]) => checked === true).map(([store, _]) => store);
+    if (checkedStores.length === 0) return true;
+
+    return checkedStores.includes(employee.primary_location);
+  });
 
   useEffect(() => {
     initializeData();
@@ -187,16 +196,26 @@ const WorkSchedule: React.FC = () => {
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 6);
 
+      const checkedStores = Object.entries(storeFilters).filter(([_, checked]) => checked === true).map(([store, _]) => store);
+      const employeesToFetch = selectedEmployees.filter(empId => {
+        const employee = employees.find(e => e.employee_id === empId);
+        if (!employee) return false;
+
+        if (checkedStores.length === 0) return true;
+
+        return checkedStores.includes(employee.primary_location);
+      });
+
       const response = await getWorkSchedules(
         weekStart.toISOString().split('T')[0],
         weekEnd.toISOString().split('T')[0],
-        selectedEmployees
+        employeesToFetch
       );
 
       const allWorkDays: { [employeeId: string]: WorkDay[] } = {};
       const dailyShifts = systemSettings?.daily_shifts || {};
 
-      for (const employeeId of selectedEmployees) {
+      for (const employeeId of employeesToFetch) {
         const employee = employees.find(emp => emp.employee_id === employeeId);
         const weekDays: WorkDay[] = [];
 
@@ -630,7 +649,7 @@ const WorkSchedule: React.FC = () => {
           </label>
           <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 min-h-[200px]">
-              {filteredAndSortedEmployees.map(employee => (
+              {employeesForSelection.map(employee => (
                 <label key={employee.employee_id} className="flex items-start space-x-2 cursor-pointer hover:bg-white p-2 rounded border border-transparent hover:border-gray-200 transition-colors">
                   <input
                     type="checkbox"
@@ -658,7 +677,7 @@ const WorkSchedule: React.FC = () => {
                 </label>
               ))}
             </div>
-            {filteredAndSortedEmployees.length === 0 && (
+            {employeesForSelection.length === 0 && (
               <div className="text-center py-8 text-gray-500">
                 <Users className="h-8 w-8 text-gray-300 mx-auto mb-2" />
                 <p className="text-sm">No employees match the current filters.</p>
@@ -677,7 +696,7 @@ const WorkSchedule: React.FC = () => {
                 <label key={loc.id} className="flex items-center space-x-2 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={storeFilters[loc.store_name] || false}
+                    checked={storeFilters[loc.store_name] === true}
                     onChange={(e) => handleStoreFilterChange(loc.store_name, e.target.checked)}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
@@ -733,7 +752,7 @@ const WorkSchedule: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedEmployees.map(employeeId => {
+                  {selectedEmployeesFilteredByStore.map(employeeId => {
                     const employee = filteredAndSortedEmployees.find(emp => emp.employee_id === employeeId);
                     if (!employee) return null;
 
@@ -899,7 +918,7 @@ const WorkSchedule: React.FC = () => {
           <p>No employees match the current filters.</p>
           <p className="text-sm text-gray-400 mt-1">Try adjusting the role or store location filters.</p>
         </div>
-      ) : selectedEmployees.filter(id => filteredAndSortedEmployees.find(emp => emp.employee_id === id)).length === 0 && (
+      ) : selectedEmployeesFilteredByStore.length === 0 && (
         <div className="text-center py-8 text-gray-500">
           <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
           <p>Please select at least one employee to manage their work schedule.</p>
