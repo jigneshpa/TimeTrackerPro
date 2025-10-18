@@ -94,19 +94,28 @@ const WorkSchedule: React.FC = () => {
 
   const initializeData = async () => {
     try {
+      console.log('Initializing work schedule data...');
       const [empResponse, locResponse, settingsResponse] = await Promise.all([
         getEmployees(),
         getStoreLocations(),
         getSystemSettings()
       ]);
 
+      console.log('Employee Response:', empResponse);
+      console.log('Location Response:', locResponse);
+      console.log('Settings Response:', settingsResponse);
+
       if (empResponse.success && empResponse.data) {
         const empList = empResponse.data.map((emp: any) => ({
           ...emp,
-          employee_id: emp.employee_id || emp.id
+          employee_id: emp.employee_id || emp.id,
+          primary_location: emp.primary_location || 'Main Store'
         }));
+        console.log('Processed employees:', empList);
         setEmployees(empList);
         setSelectedEmployeeIds(empList.map((e: Employee) => e.employee_id));
+      } else {
+        console.error('Failed to load employees:', empResponse);
       }
 
       if (locResponse.success && locResponse.data) {
@@ -116,6 +125,10 @@ const WorkSchedule: React.FC = () => {
           filters[loc.store_name] = true;
         });
         setStoreFilter(filters);
+      } else {
+        console.error('Failed to load store locations:', locResponse);
+        // Set default filters
+        setStoreFilter({ 'Main Store': true, 'Bon Aqua': true });
       }
 
       if (settingsResponse.success && settingsResponse.data) {
@@ -127,8 +140,15 @@ const WorkSchedule: React.FC = () => {
         setWeekStartDate(startDate);
         setBulkValues(prev => ({
           ...prev,
-          store_location: locResponse.data?.[0]?.store_name || 'Bon Aqua'
+          store_location: locResponse.data?.[0]?.store_name || 'Main Store'
         }));
+      } else {
+        console.error('Failed to load system settings:', settingsResponse);
+        // Set default week start to current Sunday
+        const today = new Date();
+        const sunday = new Date(today);
+        sunday.setDate(today.getDate() - today.getDay());
+        setWeekStartDate(toDateString(sunday));
       }
     } catch (error) {
       console.error('Error initializing data:', error);
@@ -344,7 +364,7 @@ const WorkSchedule: React.FC = () => {
       const isAdmin = emp.role?.includes('admin');
       if (isAdmin && !roleFilter.admins) return false;
       if (!isAdmin && !roleFilter.employees) return false;
-      if (!storeFilter[emp.primary_location]) return false;
+      if (emp.primary_location && !storeFilter[emp.primary_location]) return false;
       return selectedEmployeeIds.includes(emp.employee_id);
     })
     .sort((a, b) => {
@@ -353,6 +373,8 @@ const WorkSchedule: React.FC = () => {
       if (aIsAdmin !== bIsAdmin) return aIsAdmin ? -1 : 1;
       return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
     });
+
+  console.log('Filtered employees:', filteredEmployees.length, 'of', employees.length);
 
   const weekDates = getWeekDates();
   const weekRangeText = weekDates.length > 0
