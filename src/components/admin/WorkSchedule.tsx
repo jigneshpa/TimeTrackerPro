@@ -94,28 +94,20 @@ const WorkSchedule: React.FC = () => {
 
   const initializeData = async () => {
     try {
-      console.log('Initializing work schedule data...');
       const [empResponse, locResponse, settingsResponse] = await Promise.all([
         getEmployees(),
         getStoreLocations(),
         getSystemSettings()
       ]);
 
-      console.log('Employee Response:', empResponse);
-      console.log('Location Response:', locResponse);
-      console.log('Settings Response:', settingsResponse);
-
       if (empResponse.success && empResponse.data) {
         const empList = empResponse.data.map((emp: any) => ({
           ...emp,
           employee_id: emp.employee_id || emp.id,
-          primary_location: emp.primary_location || 'Main Store'
+          primary_location: emp.primary_location || ''
         }));
-        console.log('Processed employees:', empList);
         setEmployees(empList);
         setSelectedEmployeeIds(empList.map((e: Employee) => e.employee_id));
-      } else {
-        console.error('Failed to load employees:', empResponse);
       }
 
       if (locResponse.success && locResponse.data) {
@@ -125,10 +117,10 @@ const WorkSchedule: React.FC = () => {
           filters[loc.store_name] = true;
         });
         setStoreFilter(filters);
-      } else {
-        console.error('Failed to load store locations:', locResponse);
-        // Set default filters
-        setStoreFilter({ 'Main Store': true, 'Bon Aqua': true });
+        setBulkValues(prev => ({
+          ...prev,
+          store_location: locResponse.data?.[0]?.store_name || ''
+        }));
       }
 
       if (settingsResponse.success && settingsResponse.data) {
@@ -138,13 +130,7 @@ const WorkSchedule: React.FC = () => {
           settingsResponse.data.pay_period_type === 'biweekly' ? 14 : 7
         );
         setWeekStartDate(startDate);
-        setBulkValues(prev => ({
-          ...prev,
-          store_location: locResponse.data?.[0]?.store_name || 'Main Store'
-        }));
       } else {
-        console.error('Failed to load system settings:', settingsResponse);
-        // Set default week start to current Sunday
         const today = new Date();
         const sunday = new Date(today);
         sunday.setDate(today.getDate() - today.getDay());
@@ -219,7 +205,7 @@ const WorkSchedule: React.FC = () => {
       start_time: dayShift?.start || '08:00',
       end_time: dayShift?.end || '17:00',
       total_hours: 0,
-      store_location: emp?.primary_location || storeLocations[0]?.store_name || 'Bon Aqua',
+      store_location: emp?.primary_location || (storeLocations.length > 0 ? storeLocations[0].store_name : ''),
       is_enabled: false,
       notes: ''
     };
@@ -374,8 +360,6 @@ const WorkSchedule: React.FC = () => {
       return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
     });
 
-  console.log('Filtered employees:', filteredEmployees.length, 'of', employees.length);
-
   const weekDates = getWeekDates();
   const weekRangeText = weekDates.length > 0
     ? `Week: ${weekDates[0].toLocaleDateString()} - ${weekDates[weekDates.length - 1].toLocaleDateString()}`
@@ -464,11 +448,17 @@ const WorkSchedule: React.FC = () => {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Select Employees ({filteredEmployees.length} shown, {selectedEmployeeIds.length} selected)
+            Select Employees ({selectedEmployeeIds.length} selected)
           </label>
           <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {employees.map(emp => (
+              {employees.filter(emp => {
+                const isAdmin = emp.role?.includes('admin');
+                if (isAdmin && !roleFilter.admins) return false;
+                if (!isAdmin && !roleFilter.employees) return false;
+                if (emp.primary_location && !storeFilter[emp.primary_location]) return false;
+                return true;
+              }).map(emp => (
                 <label key={emp.employee_id} className="flex items-start space-x-2 cursor-pointer p-2 hover:bg-white rounded">
                   <input
                     type="checkbox"
@@ -542,15 +532,26 @@ const WorkSchedule: React.FC = () => {
                 const totalHours = getEmployeeTotalHours(emp.employee_id);
                 return (
                   <tr key={emp.employee_id} className="border-b hover:bg-gray-50">
-                    <td className="py-2 px-4 sticky left-0 bg-white border-r">
-                      <div>
-                        <p className="font-medium text-sm">{emp.first_name} {emp.last_name}</p>
-                        <span className={`inline-flex px-2 py-0.5 text-xs rounded-full ${
-                          emp.role?.includes('admin') ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {emp.role?.includes('admin') ? 'admin' : 'employee'}
-                        </span>
-                        <p className="text-xs text-gray-500">{emp.primary_location}</p>
+                    <td className="py-3 px-4 sticky left-0 bg-gray-50 border-r">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                          <span className="text-sm font-semibold text-blue-600">
+                            {emp.first_name[0]}{emp.last_name[0]}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm text-gray-900">{emp.first_name} {emp.last_name}</p>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
+                              emp.role?.includes('admin') ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {emp.role?.includes('admin') ? 'Admin' : 'Employee'}
+                            </span>
+                            {emp.primary_location && (
+                              <span className="text-xs text-gray-500">• {emp.primary_location}</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </td>
                     {weekDates.map((date, idx) => {
