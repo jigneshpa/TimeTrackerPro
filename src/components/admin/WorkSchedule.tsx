@@ -448,11 +448,17 @@ const WorkSchedule: React.FC = () => {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Select Employees ({filteredEmployees.length} shown, {selectedEmployeeIds.length} selected)
+            Select Employees ({selectedEmployeeIds.length} selected)
           </label>
           <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {employees.map(emp => (
+              {employees.filter(emp => {
+                const isAdmin = emp.role?.includes('admin');
+                if (isAdmin && !roleFilter.admins) return false;
+                if (!isAdmin && !roleFilter.employees) return false;
+                if (emp.primary_location && !storeFilter[emp.primary_location]) return false;
+                return true;
+              }).map(emp => (
                 <label key={emp.employee_id} className="flex items-start space-x-2 cursor-pointer p-2 hover:bg-white rounded">
                   <input
                     type="checkbox"
@@ -526,15 +532,26 @@ const WorkSchedule: React.FC = () => {
                 const totalHours = getEmployeeTotalHours(emp.employee_id);
                 return (
                   <tr key={emp.employee_id} className="border-b hover:bg-gray-50">
-                    <td className="py-2 px-4 sticky left-0 bg-white border-r">
-                      <div>
-                        <p className="font-medium text-sm">{emp.first_name} {emp.last_name}</p>
-                        <span className={`inline-flex px-2 py-0.5 text-xs rounded-full ${
-                          emp.role?.includes('admin') ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {emp.role?.includes('admin') ? 'admin' : 'employee'}
-                        </span>
-                        <p className="text-xs text-gray-500">{emp.primary_location}</p>
+                    <td className="py-3 px-4 sticky left-0 bg-gray-50 border-r">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                          <span className="text-sm font-semibold text-blue-600">
+                            {emp.first_name[0]}{emp.last_name[0]}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm text-gray-900">{emp.first_name} {emp.last_name}</p>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
+                              emp.role?.includes('admin') ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {emp.role?.includes('admin') ? 'Admin' : 'Employee'}
+                            </span>
+                            {emp.primary_location && (
+                              <span className="text-xs text-gray-500">• {emp.primary_location}</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </td>
                     {weekDates.map((date, idx) => {
