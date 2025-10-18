@@ -268,7 +268,10 @@ export async function getEmployeeDailyBreakdown(employeeId: string, startDate?: 
 export async function getWorkSchedules(startDate: string, endDate: string, employeeIds?: string[]) {
   let endpoint = `/api/admin/work-schedules?start_date=${startDate}&end_date=${endDate}`;
   if (employeeIds && employeeIds.length > 0) {
-    endpoint += `&employee_ids=${employeeIds.join(',')}`;
+    const cleanIds = employeeIds.filter(id => id && id.trim() !== '');
+    if (cleanIds.length > 0) {
+      endpoint += `&employee_ids=${cleanIds.join(',')}`;
+    }
   }
   const response = await fetchAPI<any>(endpoint, 'GET');
   return response;

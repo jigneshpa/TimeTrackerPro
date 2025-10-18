@@ -3,7 +3,13 @@
 function handle_get_work_schedules() {
     $startDate = $_GET['start_date'] ?? null;
     $endDate = $_GET['end_date'] ?? null;
-    $employeeIds = isset($_GET['employee_ids']) ? explode(',', $_GET['employee_ids']) : [];
+    $employeeIdsParam = $_GET['employee_ids'] ?? '';
+
+    // Clean up employee IDs - remove empty values
+    $employeeIds = array_filter(
+        array_map('trim', explode(',', $employeeIdsParam)),
+        function($id) { return $id !== ''; }
+    );
 
     if (!$startDate || !$endDate) {
         send_error_response('Start date and end date are required', 400);
@@ -34,7 +40,7 @@ function handle_get_work_schedules() {
 
     $sql .= " ORDER BY ws.schedule_date ASC, ws.employee_id ASC";
 
-    $stmt = $db->prepare($sql);
+    $stmt = $db->pdo->prepare($sql);
     $stmt->execute($params);
     $schedules = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
