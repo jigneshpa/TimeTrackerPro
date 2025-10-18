@@ -91,14 +91,14 @@ const WorkSchedule: React.FC = () => {
 
   const filteredAndSortedEmployees = [...employees]
     .filter(emp => {
-      const isAdmin = emp.role?.includes('admin');
+      const isAdmin = emp.role === 'admin' || emp.role === 'master_admin' || emp.role?.includes('admin');
       const roleMatch = isAdmin ? roleFilters.admin : roleFilters.employee;
-      const storeMatch = !emp.primary_location || storeFilters[emp.primary_location];
+      const storeMatch = !emp.primary_location || storeFilters[emp.primary_location] !== false;
       return roleMatch && storeMatch;
     })
     .sort((a, b) => {
-      const aIsAdmin = a.role?.includes('admin');
-      const bIsAdmin = b.role?.includes('admin');
+      const aIsAdmin = a.role === 'admin' || a.role === 'master_admin' || a.role?.includes('admin');
+      const bIsAdmin = b.role === 'admin' || b.role === 'master_admin' || b.role?.includes('admin');
       if (aIsAdmin !== bIsAdmin) {
         return aIsAdmin ? -1 : 1;
       }
@@ -141,6 +141,13 @@ const WorkSchedule: React.FC = () => {
         locResponse.data.forEach((loc: StoreLocation) => {
           filters[loc.store_name] = true;
         });
+
+        empList.forEach((emp: Employee) => {
+          if (emp.primary_location && !filters[emp.primary_location]) {
+            filters[emp.primary_location] = true;
+          }
+        });
+
         setStoreFilters(filters);
       }
 
