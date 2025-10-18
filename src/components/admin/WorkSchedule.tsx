@@ -30,6 +30,8 @@ interface WorkDay {
 
 interface Employee {
   employee_id: string;
+  db_employee_id: number | null;
+  user_id: number;
   first_name: string;
   last_name: string;
   primary_location: string;
@@ -124,13 +126,12 @@ const WorkSchedule: React.FC = () => {
       ]);
 
       if (empResponse.success && empResponse.data) {
-        const empList = empResponse.data
-          .filter((emp: any) => emp.employee_id != null)
-          .map((emp: any) => ({
-            ...emp,
-            employee_id: String(emp.employee_id),
-            primary_location: emp.primary_location || ''
-          }));
+        const empList = empResponse.data.map((emp: any) => ({
+          ...emp,
+          db_employee_id: emp.employee_id,
+          employee_id: String(emp.employee_id || emp.user_id),
+          primary_location: emp.primary_location || ''
+        }));
         setEmployees(empList);
         setSelectedEmployees(empList.map((e: Employee) => e.employee_id));
       }
@@ -206,7 +207,10 @@ const WorkSchedule: React.FC = () => {
           const dayName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getDay()];
 
           const existingSchedule = response.success && response.data
-            ? response.data.find((s: any) => String(s.employee_id) === String(employeeId) && s.schedule_date === dateStr)
+            ? response.data.find((s: any) => {
+                const schedEmpId = s.employee_id || s.user_id;
+                return String(schedEmpId) === String(employeeId) && s.schedule_date === dateStr;
+              })
             : null;
 
           const dayShift = dailyShifts[dayName] || { start: '08:00', end: '17:00', enabled: true };
@@ -254,10 +258,12 @@ const WorkSchedule: React.FC = () => {
       const schedules: any[] = [];
 
       for (const employeeId of selectedEmployees) {
+        const employee = employees.find(emp => emp.employee_id === employeeId);
         const employeeWorkDays = workDays[employeeId] || [];
         employeeWorkDays.forEach(day => {
           schedules.push({
-            employee_id: day.employee_id,
+            employee_id: employee?.db_employee_id || null,
+            user_id: employee?.user_id,
             schedule_date: day.date,
             start_time: day.start_time,
             end_time: day.end_time,

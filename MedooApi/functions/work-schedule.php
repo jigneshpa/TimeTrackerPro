@@ -126,11 +126,46 @@ function handle_bulk_save_work_schedules() {
 
     try {
         foreach ($data['schedules'] as $schedule) {
-            if (!isset($schedule['employee_id']) || !isset($schedule['schedule_date'])) {
+            if (!isset($schedule['schedule_date'])) {
                 continue;
             }
 
-            $employeeId = $schedule['employee_id'];
+            $employeeId = $schedule['employee_id'] ?? null;
+            $userId = $schedule['user_id'] ?? null;
+
+            if (!$employeeId && !$userId) {
+                continue;
+            }
+
+            if (!$employeeId && $userId) {
+                $stmt = $db->pdo->prepare("SELECT id FROM employees_timetrackpro WHERE user_id = ?");
+                $stmt->execute([$userId]);
+                $employeeId = $stmt->fetchColumn();
+
+                if (!$employeeId) {
+                    $getUserStmt = $db->pdo->prepare("SELECT first_name, last_name, email, phone, role FROM users_timetrackpro WHERE id = ?");
+                    $getUserStmt->execute([$userId]);
+                    $user = $getUserStmt->fetch(PDO::FETCH_ASSOC);
+
+                    if ($user) {
+                        $insertStmt = $db->pdo->prepare("INSERT INTO employees_timetrackpro (user_id, first_name, last_name, email, phone, hire_date, role, is_active) VALUES (?, ?, ?, ?, ?, CURDATE(), ?, 1)");
+                        $insertStmt->execute([
+                            $userId,
+                            $user['first_name'],
+                            $user['last_name'],
+                            $user['email'],
+                            $user['phone'],
+                            $user['role']
+                        ]);
+                        $employeeId = $db->pdo->lastInsertId();
+                    }
+
+                    if (!$employeeId) {
+                        continue;
+                    }
+                }
+            }
+
             $scheduleDate = $schedule['schedule_date'];
             $startTime = $schedule['start_time'] ?? null;
             $endTime = $schedule['end_time'] ?? null;
