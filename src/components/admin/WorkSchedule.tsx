@@ -134,12 +134,15 @@ const WorkSchedule: React.FC = () => {
         getSystemSettings()
       ]);
 
+      let empList: Employee[] = [];
+
       if (empResponse.success && empResponse.data) {
-        const empList = empResponse.data.map((emp: any) => ({
+        empList = empResponse.data.map((emp: any) => ({
           ...emp,
           db_employee_id: emp.employee_id,
           employee_id: String(emp.employee_id || emp.user_id),
-          primary_location: emp.primary_location || ''
+          primary_location: emp.primary_location || '',
+          primary_location_id: emp.primary_location_id || null
         }));
         setEmployees(empList);
         setSelectedEmployees(empList.map((e: Employee) => e.employee_id));
@@ -147,15 +150,9 @@ const WorkSchedule: React.FC = () => {
 
       if (locResponse.success && locResponse.data) {
         setStoreLocations(locResponse.data);
-        const filters: { [key: string]: boolean } = {};
+        const filters: { [key: number]: boolean } = {};
         locResponse.data.forEach((loc: StoreLocation) => {
-          filters[loc.store_name] = true;
-        });
-
-        empList.forEach((emp: Employee) => {
-          if (emp.primary_location && !filters[emp.primary_location]) {
-            filters[emp.primary_location] = true;
-          }
+          filters[loc.id] = true;
         });
 
         setStoreFilters(filters);
@@ -376,20 +373,39 @@ const WorkSchedule: React.FC = () => {
   const saveEdit = async () => {
     if (!editingCell) return;
 
-    const updatedWorkDays = { ...workDays };
+    try {
+      const employee = employees.find(emp => emp.employee_id === editingCell.employeeId);
+      const currentDay = workDays[editingCell.employeeId].find(d => d.date === editingCell.date);
+      const updatedDay = { ...currentDay, ...editValues };
+      updatedDay.hours = calculateHours(updatedDay.start_time, updatedDay.end_time);
 
-    updatedWorkDays[editingCell.employeeId] = workDays[editingCell.employeeId].map(day => {
-      if (day.date === editingCell.date) {
-        const updatedDay = { ...day, ...editValues };
-        updatedDay.hours = calculateHours(updatedDay.start_time, updatedDay.end_time);
-        return updatedDay;
-      }
-      return day;
-    });
+      await saveWorkSchedule({
+        employee_id: employee?.db_employee_id || null,
+        user_id: employee?.user_id,
+        schedule_date: editingCell.date,
+        start_time: updatedDay.start_time,
+        end_time: updatedDay.end_time,
+        total_hours: updatedDay.hours,
+        store_id: updatedDay.store_id,
+        is_enabled: updatedDay.is_scheduled,
+        notes: updatedDay.notes || ''
+      });
 
-    setWorkDays(updatedWorkDays);
-    setEditingCell(null);
-    setEditValues({});
+      const updatedWorkDays = { ...workDays };
+      updatedWorkDays[editingCell.employeeId] = workDays[editingCell.employeeId].map(day => {
+        if (day.date === editingCell.date) {
+          return updatedDay;
+        }
+        return day;
+      });
+
+      setWorkDays(updatedWorkDays);
+      setEditingCell(null);
+      setEditValues({});
+    } catch (error) {
+      console.error('Error saving schedule:', error);
+      alert('Failed to save schedule');
+    }
   };
 
   const cancelEdit = () => {
