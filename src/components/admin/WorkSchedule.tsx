@@ -110,10 +110,26 @@ const WorkSchedule: React.FC = () => {
     const employee = employees.find(e => e.employee_id === empId);
     if (!employee) return false;
 
-    const checkedStores = Object.entries(storeFilters).filter(([_, checked]) => checked === true).map(([store, _]) => store);
-    if (checkedStores.length === 0) return true;
+    // Only apply store filter for past dates
+    if (selectedWeek) {
+      const weekStart = new Date(selectedWeek);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      weekStart.setHours(0, 0, 0, 0);
 
-    return checkedStores.includes(employee.primary_location);
+      // If viewing current or future week, show all selected employees regardless of store
+      if (weekStart >= today) {
+        return true;
+      }
+    }
+
+    // For past dates, apply store filter
+    const checkedStoreIds = Object.entries(storeFilters)
+      .filter(([_, checked]) => checked === true)
+      .map(([storeId, _]) => Number(storeId));
+    if (checkedStoreIds.length === 0) return true;
+
+    return employee.primary_location_id !== null && checkedStoreIds.includes(employee.primary_location_id);
   });
 
   useEffect(() => {
@@ -193,14 +209,26 @@ const WorkSchedule: React.FC = () => {
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 6);
 
-      const checkedStores = Object.entries(storeFilters).filter(([_, checked]) => checked === true).map(([store, _]) => store);
+      // Check if viewing current or future week
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      weekStart.setHours(0, 0, 0, 0);
+      const isFutureOrCurrent = weekStart >= today;
+
       const employeesToFetch = selectedEmployees.filter(empId => {
         const employee = employees.find(e => e.employee_id === empId);
         if (!employee) return false;
 
-        if (checkedStores.length === 0) return true;
+        // For current/future dates, show all selected employees
+        if (isFutureOrCurrent) return true;
 
-        return checkedStores.includes(employee.primary_location);
+        // For past dates, apply store filter
+        const checkedStoreIds = Object.entries(storeFilters)
+          .filter(([_, checked]) => checked === true)
+          .map(([storeId, _]) => Number(storeId));
+        if (checkedStoreIds.length === 0) return true;
+
+        return employee.primary_location_id !== null && checkedStoreIds.includes(employee.primary_location_id);
       });
 
       const response = await getWorkSchedules(
