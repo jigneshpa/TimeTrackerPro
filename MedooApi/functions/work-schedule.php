@@ -24,7 +24,7 @@ function handle_get_work_schedules() {
         ws.start_time,
         ws.end_time,
         ws.total_hours,
-        ws.store_location,
+        ws.store_id,
         ws.is_enabled,
         ws.notes
     FROM work_schedules_timetrackpro ws
@@ -60,7 +60,7 @@ function handle_save_work_schedule() {
     $scheduleDate = $data['schedule_date'];
     $startTime = $data['start_time'] ?? null;
     $endTime = $data['end_time'] ?? null;
-    $storeLocation = $data['store_location'] ?? null;
+    $storeId = $data['store_id'] ?? null;
     $isEnabled = isset($data['is_enabled']) ? (bool)$data['is_enabled'] : true;
     $notes = $data['notes'] ?? null;
 
@@ -90,7 +90,7 @@ function handle_save_work_schedule() {
             'start_time' => $startTime,
             'end_time' => $endTime,
             'total_hours' => $totalHours,
-            'store_location' => $storeLocation,
+            'store_id' => $storeId,
             'is_enabled' => $isEnabled,
             'notes' => $notes
         ], [
@@ -105,7 +105,7 @@ function handle_save_work_schedule() {
             'start_time' => $startTime,
             'end_time' => $endTime,
             'total_hours' => $totalHours,
-            'store_location' => $storeLocation,
+            'store_id' => $storeId,
             'is_enabled' => $isEnabled,
             'notes' => $notes
         ]);
@@ -169,7 +169,7 @@ function handle_bulk_save_work_schedules() {
             $scheduleDate = $schedule['schedule_date'];
             $startTime = $schedule['start_time'] ?? null;
             $endTime = $schedule['end_time'] ?? null;
-            $storeLocation = $schedule['store_location'] ?? null;
+            $storeId = $schedule['store_id'] ?? null;
             $isEnabled = isset($schedule['is_enabled']) ? (bool)$schedule['is_enabled'] : true;
             $notes = $schedule['notes'] ?? null;
 
@@ -194,12 +194,12 @@ function handle_bulk_save_work_schedules() {
 
             if ($existing) {
                 // Update existing schedule
-                $stmt = $db->pdo->prepare("UPDATE work_schedules_timetrackpro SET start_time = ?, end_time = ?, total_hours = ?, store_location = ?, is_enabled = ?, notes = ? WHERE id = ?");
-                $stmt->execute([$startTime, $endTime, $totalHours, $storeLocation, $isEnabled, $notes, $existing]);
+                $stmt = $db->pdo->prepare("UPDATE work_schedules_timetrackpro SET start_time = ?, end_time = ?, total_hours = ?, store_id = ?, is_enabled = ?, notes = ? WHERE id = ?");
+                $stmt->execute([$startTime, $endTime, $totalHours, $storeId, $isEnabled, $notes, $existing]);
             } else {
                 // Insert new schedule
-                $stmt = $db->pdo->prepare("INSERT INTO work_schedules_timetrackpro (employee_id, schedule_date, start_time, end_time, total_hours, store_location, is_enabled, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$employeeId, $scheduleDate, $startTime, $endTime, $totalHours, $storeLocation, $isEnabled, $notes]);
+                $stmt = $db->pdo->prepare("INSERT INTO work_schedules_timetrackpro (employee_id, schedule_date, start_time, end_time, total_hours, store_id, is_enabled, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$employeeId, $scheduleDate, $startTime, $endTime, $totalHours, $storeId, $isEnabled, $notes]);
             }
         }
 
@@ -299,26 +299,26 @@ function handle_copy_week_schedules() {
 
             if ($existing) {
                 // Update existing
-                $stmt = $db->pdo->prepare("UPDATE work_schedules_timetrackpro SET start_time = ?, end_time = ?, total_hours = ?, store_location = ?, is_enabled = ?, notes = ? WHERE id = ?");
+                $stmt = $db->pdo->prepare("UPDATE work_schedules_timetrackpro SET start_time = ?, end_time = ?, total_hours = ?, store_id = ?, is_enabled = ?, notes = ? WHERE id = ?");
                 $stmt->execute([
                     $schedule['start_time'],
                     $schedule['end_time'],
                     $schedule['total_hours'],
-                    $schedule['store_location'],
+                    $schedule['store_id'],
                     $schedule['is_enabled'],
                     $schedule['notes'],
                     $existing
                 ]);
             } else {
                 // Insert new
-                $stmt = $db->pdo->prepare("INSERT INTO work_schedules_timetrackpro (employee_id, schedule_date, start_time, end_time, total_hours, store_location, is_enabled, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt = $db->pdo->prepare("INSERT INTO work_schedules_timetrackpro (employee_id, schedule_date, start_time, end_time, total_hours, store_id, is_enabled, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmt->execute([
                     $schedule['employee_id'],
                     $targetDate->format('Y-m-d'),
                     $schedule['start_time'],
                     $schedule['end_time'],
                     $schedule['total_hours'],
-                    $schedule['store_location'],
+                    $schedule['store_id'],
                     $schedule['is_enabled'],
                     $schedule['notes']
                 ]);
