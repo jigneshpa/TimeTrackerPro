@@ -164,16 +164,12 @@ function handle_bulk_save_work_schedules() {
 
                         $phone = $user['mobile_phone'] ?? $user['phone_number'];
 
-                        $insertStmt = $db->pdo->prepare("INSERT INTO employees_timetrackpro (user_id, first_name, last_name, email, phone, hire_date, role, is_active, vacation_days_total, vacation_days_used) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, 0)");
-                        $insertStmt->execute([
-                            $userId,
-                            $user['first_name'],
-                            $user['last_name'],
-                            $user['email'],
-                            $phone,
-                            $user['start_date'] ?? date('Y-m-d'),
-                            $role
-                        ]);
+                        $insertStmt = $db->pdo->prepare("
+    INSERT INTO employees_timetrackpro (user_id, vacation_days_total, vacation_days_used, primary_location)
+    VALUES (?, 0, 0, 'Main Store')
+");
+$insertStmt->execute([$userId]);
+
                         $employeeId = $db->pdo->lastInsertId();
                     }
 
