@@ -143,19 +143,36 @@ function handle_bulk_save_work_schedules() {
                 $employeeId = $stmt->fetchColumn();
 
                 if (!$employeeId) {
-                    $getUserStmt = $db->pdo->prepare("SELECT first_name, last_name, email, phone, role FROM users WHERE id = ?");
+                    $getUserStmt = $db->pdo->prepare("SELECT first_name, middle_name, last_name, email, mobile_phone, phone_number, employee_code, start_date FROM users WHERE id = ?");
                     $getUserStmt->execute([$userId]);
                     $user = $getUserStmt->fetch(PDO::FETCH_ASSOC);
 
                     if ($user) {
-                        $insertStmt = $db->pdo->prepare("INSERT INTO employees_timetrackpro (user_id, first_name, last_name, email, phone, hire_date, role, is_active) VALUES (?, ?, ?, ?, ?, CURDATE(), ?, 1)");
+                        // Get user roles to determine if admin
+                        $getRolesStmt = $db->pdo->prepare("
+                            SELECT r.short_name
+                            FROM model_has_roles mr
+                            JOIN roles r ON mr.role_id = r.id
+                            WHERE mr.model_id = ? AND mr.model_type = 'App\\\\Models\\\\Iam\\\\Personnel\\\\User'
+                        ");
+                        $getRolesStmt->execute([$userId]);
+                        $roleShortNames = $getRolesStmt->fetchAll(PDO::FETCH_COLUMN);
+
+                        $adminRoles = ['admin', 'master_admin'];
+                        $isAdmin = !empty(array_intersect($roleShortNames, $adminRoles));
+                        $role = $isAdmin ? 'admin' : 'employee';
+
+                        $phone = $user['mobile_phone'] ?? $user['phone_number'];
+
+                        $insertStmt = $db->pdo->prepare("INSERT INTO employees_timetrackpro (user_id, first_name, last_name, email, phone, hire_date, role, is_active, vacation_days_total, vacation_days_used) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, 0)");
                         $insertStmt->execute([
                             $userId,
                             $user['first_name'],
                             $user['last_name'],
                             $user['email'],
-                            $user['phone'],
-                            $user['role']
+                            $phone,
+                            $user['start_date'] ?? date('Y-m-d'),
+                            $role
                         ]);
                         $employeeId = $db->pdo->lastInsertId();
                     }
