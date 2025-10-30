@@ -266,7 +266,7 @@ const WorkSchedule: React.FC = () => {
             end_time: existingSchedule?.end_time || dayShift.end,
             store_location: existingSchedule?.store_location || employee?.primary_location || (storeLocations.length > 0 ? storeLocations[0].store_name : ''),
             is_scheduled: existingSchedule ? existingSchedule.is_enabled === 1 : dayShift.enabled,
-            hours: existingSchedule?.total_hours || calculateHours(dayShift.start, dayShift.end),
+            hours: existingSchedule?.total_hours ? Number(existingSchedule.total_hours) : calculateHours(dayShift.start, dayShift.end),
             notes: existingSchedule?.notes || ''
           });
         }
