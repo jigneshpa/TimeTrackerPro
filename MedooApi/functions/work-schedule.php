@@ -48,7 +48,7 @@ function handle_get_work_schedules() {
 }
 
 function handle_save_work_schedule() {
-    $data = get_json_input();
+    $data = json_decode(file_get_contents('php://input'), true);
 
     if (!isset($data['employee_id']) || !isset($data['schedule_date'])) {
         send_error_response('Employee ID and schedule date are required', 400);
@@ -115,7 +115,7 @@ function handle_save_work_schedule() {
 }
 
 function handle_bulk_save_work_schedules() {
-    $data = get_json_input();
+    $data = json_decode(file_get_contents('php://input'), true);
 
     if (!isset($data['schedules']) || !is_array($data['schedules'])) {
         send_error_response('Schedules array is required', 400);
@@ -225,7 +225,7 @@ function handle_delete_work_schedule() {
 }
 
 function handle_clear_week_schedules() {
-    $data = get_json_input();
+    $data = json_decode(file_get_contents('php://input'), true);
 
     if (!isset($data['start_date']) || !isset($data['end_date']) || !isset($data['employee_ids'])) {
         send_error_response('Start date, end date, and employee IDs are required', 400);
@@ -251,7 +251,7 @@ function handle_clear_week_schedules() {
 }
 
 function handle_copy_week_schedules() {
-    $data = get_json_input();
+    $data = json_decode(file_get_contents('php://input'), true);
 
     if (!isset($data['source_start_date']) || !isset($data['target_start_date']) || !isset($data['employee_ids'])) {
         send_error_response('Source date, target date, and employee IDs are required', 400);
