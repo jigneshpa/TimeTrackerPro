@@ -143,7 +143,7 @@ function handle_bulk_save_work_schedules() {
                 $employeeId = $stmt->fetchColumn();
 
                 if (!$employeeId) {
-                    $getUserStmt = $db->pdo->prepare("SELECT first_name, last_name, email, phone, role FROM users_timetrackpro WHERE id = ?");
+                    $getUserStmt = $db->pdo->prepare("SELECT first_name, last_name, email, phone, role FROM users WHERE id = ?");
                     $getUserStmt->execute([$userId]);
                     $user = $getUserStmt->fetch(PDO::FETCH_ASSOC);
 
